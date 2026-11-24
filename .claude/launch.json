@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "middle-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--config", "dev/vite.config.ts"],
+      "port": 5199
+    }
+  ]
+}
