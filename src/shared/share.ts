@@ -30,13 +30,20 @@ export const shareText = (opts: {
   maxTotal: number;
   rounds: readonly ShareRound[];
   streak: number;
+  /** "Better than X% of players today", or null if nobody else has finished. */
+  beat?: number | null;
   final: boolean;
 }): string => {
   const lines = [
     `**middLE #${opts.number}**: ${opts.total} / ${opts.maxTotal}${opts.final ? '' : ' (so far)'}`,
     shareGrid(opts.rounds),
   ];
-  if (opts.streak > 1) lines.push(`🔥 ${opts.streak}-day streak`);
+  const extras: string[] = [];
+  if (opts.beat !== undefined && opts.beat !== null) {
+    extras.push(`📊 Better than ${opts.beat}% of players today`);
+  }
+  if (opts.streak > 1) extras.push(`🔥 ${opts.streak}-day streak`);
+  if (extras.length > 0) lines.push(extras.join(' · '));
   // Blank lines between parts so Reddit's Markdown keeps them on separate lines.
   return lines.join('\n\n');
 };

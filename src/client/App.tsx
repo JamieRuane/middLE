@@ -828,9 +828,21 @@ const Summary = ({
               {bullseyes > 0 && (
                 <span className="badge">{plural(bullseyes, 'bullseye')}</span>
               )}
+              {state.beat !== null ? (
+                <span className="beat">
+                  Better than <strong>{state.beat}%</strong> of players{' '}
+                  {state.open ? 'today' : 'that day'}
+                </span>
+              ) : (
+                state.open && (
+                  <span className="beat">
+                    <strong>First to finish</strong> today
+                  </span>
+                )
+              )}
               <span className="muted small">
                 {few
-                  ? `Only ${plural(state.players, 'player')} so far. Medians will move.`
+                  ? `Only ${plural(state.players, 'player')} so far`
                   : plural(state.players, 'player')}
                 {state.open ? ` · final in ${countdown}` : ''}
               </span>

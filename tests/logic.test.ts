@@ -250,3 +250,53 @@ test('outcome: a practice replay is scored without removing someone else’s gue
   assert.equal(replay.median, 50);
   assert.equal(replay.score, 40);
 });
+
+test('beatPercent: share of other finishers with a lower total', async () => {
+  const { beatPercent, MAX_DAILY_TOTAL } =
+    await import('../src/shared/score.ts');
+  const hist = (...totals: number[]) => {
+    const h = new Array(MAX_DAILY_TOTAL + 1).fill(0);
+    for (const t of totals) h[t] += 1;
+    return h;
+  };
+  assert.equal(beatPercent(hist(300), 300), null); // only you
+  assert.equal(beatPercent(hist(100, 200, 300, 400, 500), 300), 50); // 2 of 4 others lower
+  assert.equal(beatPercent(hist(100, 300, 300), 300), 50); // ties don't count as beaten
+  assert.equal(beatPercent(hist(450, 100, 200), 450), 100);
+  assert.equal(beatPercent(hist(0, 100, 200), 0), 0);
+});
+
+test('share text includes "better than" when known', async () => {
+  const { shareText } = await import('../src/shared/share.ts');
+  const rounds = [
+    { score: 98, bullseye: true },
+    { score: 86, bullseye: false },
+    { score: 8, bullseye: false },
+    { score: 40, bullseye: false },
+    { score: 70, bullseye: false },
+  ];
+  assert.equal(
+    shareText({
+      number: 3,
+      total: 302,
+      maxTotal: 500,
+      rounds,
+      streak: 4,
+      beat: 72,
+      final: false,
+    }),
+    '**middLE #3**: 302 / 500 (so far)\n\n🎯 🟩 🟥 🟧 🟨\n\n📊 Better than 72% of players today · 🔥 4-day streak'
+  );
+  assert.equal(
+    shareText({
+      number: 3,
+      total: 302,
+      maxTotal: 500,
+      rounds,
+      streak: 1,
+      beat: null,
+      final: false,
+    }),
+    '**middLE #3**: 302 / 500 (so far)\n\n🎯 🟩 🟥 🟧 🟨'
+  );
+});

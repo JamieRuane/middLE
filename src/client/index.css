@@ -605,6 +605,18 @@ body {
   color: var(--muted);
 }
 
+.beat {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.beat strong {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  color: var(--mint-text);
+}
+
 .total-meta {
   flex: 1;
   display: flex;
@@ -1262,7 +1274,7 @@ body {
   }
   .total,
   .reveal-score {
-    padding: 6px 12px;
+    padding: 5px 12px;
   }
   .score-num {
     font-size: 2.2rem;
@@ -1293,6 +1305,14 @@ body {
   .round-sub {
     display: none;
   }
+  /* The total card keeps the score and the "better than" line; the label and badge go. */
+  .total .score-unit,
+  .total .badge {
+    display: none;
+  }
+  .beat {
+    font-size: 0.82rem;
+  }
   .share {
     padding: 4px 4px 4px 10px;
   }
@@ -1301,6 +1321,23 @@ body {
   }
   .stats dt {
     font-size: 0.6rem;
+  }
+}
+
+/* Phones: keep the header (wordmark, day chip, streak) on one line. */
+@media (max-width: 380px) {
+  .top {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .wordmark {
+    font-size: 1.5rem;
+  }
+  .meta-chip,
+  .streak {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    white-space: nowrap;
   }
 }
 

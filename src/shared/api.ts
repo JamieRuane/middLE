@@ -49,6 +49,8 @@ export type StateResponse = {
   results: (RoundResult | null)[];
   /** Sum of round scores (0..500), once you've finished all rounds. */
   total: number | null;
+  /** % of other players who finished today with a lower total than you (null if you're the only one). */
+  beat: number | null;
   stats: Stats;
   /** True once the player has posted today's result as a comment. */
   shared: boolean;

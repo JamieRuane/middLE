@@ -87,6 +87,7 @@ export const buildPreviewState = (
             average: 391,
           },
     shared,
+    beat: complete ? (s === 'few' ? 50 : s === 'closed' ? 64 : 72) : null,
     yesterday:
       s === 'new' ? null : { number: number - 1, total: 412, bullseyes: 1 },
     todayUrl: open
