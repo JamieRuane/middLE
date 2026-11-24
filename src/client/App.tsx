@@ -346,10 +346,13 @@ const useCountUp = (target: number, delay: number, duration: number) => {
     };
     raf = requestAnimationFrame(tick);
     // rAF pauses in background tabs; make sure the final score always lands.
-    const fallback = window.setTimeout(() => {
-      setValue(target);
-      setLanded(true);
-    }, delay + duration + 80);
+    const fallback = window.setTimeout(
+      () => {
+        setValue(target);
+        setLanded(true);
+      },
+      delay + duration + 80
+    );
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(fallback);
@@ -371,9 +374,10 @@ const tierFor = (score: number, bullseye: boolean): Tier => {
 
 const BURST_COLOURS = [
   'var(--accent)',
-  'var(--median)',
-  'var(--ink)',
-  '#f2b53a',
+  'var(--sun)',
+  'var(--mint)',
+  'var(--grape)',
+  'var(--sky)',
 ];
 
 /** A small confetti pop around the score for great rounds. */
