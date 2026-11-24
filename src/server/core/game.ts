@@ -139,21 +139,29 @@ const settle = async (userId: string, now: string): Promise<void> => {
   await redis.hSet(userKey, { settled: last });
 };
 
+/**
+ * Reads the player's stats. `finishedToday` is their provisional result for today, if they've
+ * finished it: finished days only settle into the stored totals on a later visit, so
+ * without it today's bullseyes and score wouldn't show until tomorrow.
+ */
 const readStats = async (
   userId: string | undefined,
-  now: string
+  now: string,
+  finishedToday: { sum: number; bullseyes: number } | null = null
 ): Promise<Stats> => {
   if (!userId)
     return { streak: 0, bestStreak: 0, played: 0, bullseyes: 0, average: null };
   const u = await redis.hGetAll(keys.user(userId));
   const alive = u.last === now || u.last === addDays(now, -1);
-  const scored = int(u.scored);
+  const pending = finishedToday && u.settled !== now ? finishedToday : null;
+  const scored = int(u.scored) + (pending ? 1 : 0);
+  const totalScore = int(u.total) + (pending?.sum ?? 0);
   return {
     streak: alive ? int(u.streak) : 0,
     bestStreak: int(u.best),
     played: int(u.played),
-    bullseyes: int(u.bull),
-    average: scored > 0 ? Math.round(int(u.total) / scored) : null,
+    bullseyes: int(u.bull) + (pending?.bullseyes ?? 0),
+    average: scored > 0 ? Math.round(totalScore / scored) : null,
   };
 };
 
@@ -202,21 +210,31 @@ export const getState = async (postId: string): Promise<StateResponse> => {
   // A round's crowd is revealed as soon as you've locked it in (or for everyone once the day closes).
   const revealed = ROUND_INDEXES.map((r) => guesses[r] !== null || !open);
 
-  const [counts, stats, yesterday, todayPostId, players, sharedId] =
-    await Promise.all([
+  const [counts, yesterday, todayPostId, players, sharedId] = await Promise.all(
+    [
       Promise.all(
         ROUND_INDEXES.map((r) =>
           revealed[r] ? readCounts(day, r) : Promise.resolve(null)
         )
       ),
-      readStats(userId, now),
       userId && open ? readYesterday(userId, now) : Promise.resolve(null),
       open ? Promise.resolve(null) : postIdForDay(now),
       redis.hLen(keys.guesses(day, LAST_ROUND)),
       userId
         ? redis.hGet(keys.shared(day), userId)
         : Promise.resolve(undefined),
-    ]);
+    ]
+  );
+
+  const dayTally = complete
+    ? tally(
+        day,
+        guesses,
+        counts.map((c) => c ?? emptyCounts())
+      )
+    : null;
+  // Today's finished game counts toward stats straight away.
+  const stats = await readStats(userId, now, open ? dayTally : null);
 
   return {
     type: 'state',
@@ -231,13 +249,7 @@ export const getState = async (postId: string): Promise<StateResponse> => {
     results: counts.map((c, r) =>
       c ? buildRound(c, warmups[r] ?? emptyCounts(), guesses[r] ?? null) : null
     ),
-    total: complete
-      ? tally(
-          day,
-          guesses,
-          counts.map((c) => c ?? emptyCounts())
-        ).sum
-      : null,
+    total: dayTally?.sum ?? null,
     stats,
     shared: Boolean(sharedId),
     yesterday,
