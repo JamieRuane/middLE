@@ -11,7 +11,10 @@ menu.post('/post-create', async (c) => {
     return c.json<UiResponse>(
       post.created
         ? { navigateTo: postUrl(post.id) }
-        : { showToast: 'Today’s middLE is already up.', navigateTo: postUrl(post.id) },
+        : {
+            showToast: 'Today’s middLE is already up.',
+            navigateTo: postUrl(post.id),
+          },
       200
     );
   } catch (error) {

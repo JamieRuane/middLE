@@ -4,7 +4,10 @@ import { promptsForDayNumber } from '../../shared/prompts';
 import { postIdForDay, rememberPost } from './game';
 
 /** Creates today's middLE post, or returns the existing one so a day never gets two. */
-export const ensureDailyPost = async (): Promise<{ id: string; created: boolean }> => {
+export const ensureDailyPost = async (): Promise<{
+  id: string;
+  created: boolean;
+}> => {
   const day = today();
   const existing = await postIdForDay(day);
   if (existing) return { id: existing, created: false };

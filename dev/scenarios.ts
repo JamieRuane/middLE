@@ -29,7 +29,8 @@ const CENTRES = [62, 35, 48, 71, 55];
 /** Scenarios: fresh | new | mid | played | closed | few | out */
 export const buildPreviewState = (
   s: string,
-  guesses: (number | null)[]
+  guesses: (number | null)[],
+  shared = false
 ): StateResponse => {
   const number = s === 'closed' ? 2 : 3;
   const open = s !== 'closed';
@@ -81,6 +82,7 @@ export const buildPreviewState = (
             bullseyes: 4,
             average: 391,
           },
+    shared,
     yesterday:
       s === 'new' ? null : { number: number - 1, total: 412, bullseyes: 1 },
     todayUrl: open

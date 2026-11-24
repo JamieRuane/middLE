@@ -12,7 +12,7 @@ middLE is a daily game for Reddit. Each day brings five rounds, one prompt each.
 4. As soon as you lock in, the round is revealed: the crowd's guesses so far, the median, and your round score out of 100.
 5. After round five, you get your daily total out of 500. Tap any round to look at its crowd again.
 6. Medians keep moving while people play. Results go final at midnight UTC, when the next middLE posts.
-7. Argue about it in the comments.
+7. Tap **Post to comments** to share a spoiler-free result: your score and one emoji per round (🎯 bullseye, 🟩 85+, 🟨 65+, 🟧 40+, 🟥 under 40). It's posted from your account, once per day. Then argue about it in the thread.
 
 ## Scoring
 

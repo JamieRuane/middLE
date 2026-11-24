@@ -277,7 +277,15 @@ export const PROMPTS: readonly Prompt[] = [
   },
   ...[
     p('How many close friends is "a lot"?', '1', '30', 1, 30, 'plain'),
-    p('How many hours of screen time a day is too much?', '0h', '16h', 0, 16, 'h', { step: 0.5 }),
+    p(
+      'How many hours of screen time a day is too much?',
+      '0h',
+      '16h',
+      0,
+      16,
+      'h',
+      { step: 0.5 }
+    ),
     p('Where does yellow become orange?', 'yellow', 'orange', 0, 100, '%', {
       gradient: ['#f7e03c', '#f5961b'],
     }),
@@ -285,21 +293,52 @@ export const PROMPTS: readonly Prompt[] = [
       step: 0.5,
       gradient: ['#8fc1e8', '#f2e6d0', '#e0582b'],
     }),
-    p('How many coffees a day is too many?', '0', '10', 0, 10, 'plain', { step: 0.5 }),
-    p('How long should a good film be?', '1 hour', '4 hours', 60, 240, 'min', { step: 5 }),
-    p('What time is "late" for dinner?', '5pm', '11pm', 17 * 60, 23 * 60, 'time', { step: 5 }),
+    p('How many coffees a day is too many?', '0', '10', 0, 10, 'plain', {
+      step: 0.5,
+    }),
+    p('How long should a good film be?', '1 hour', '4 hours', 60, 240, 'min', {
+      step: 5,
+    }),
+    p(
+      'What time is "late" for dinner?',
+      '5pm',
+      '11pm',
+      17 * 60,
+      23 * 60,
+      'time',
+      { step: 5 }
+    ),
     p('How long is a reasonable shower?', '0', '30 min', 0, 30, 'min'),
     p('At what age are you a proper grown-up?', '12', '40', 12, 40, 'yrs'),
     p('Where does navy become black?', 'navy', 'black', 0, 100, '%', {
       gradient: ['#1f3577', '#050505'],
     }),
-    p('How crowded is too crowded for a beach?', 'empty', 'packed', 0, 100, '%'),
-    p('How many unread emails is chaos?', '0', '1,000', 0, 1000, 'plain', { step: 10 }),
-    p('How bright is your phone screen right now?', 'dim', 'max', 0, 100, '%'),
-    p('How many days can you skip washing your hair?', '0', '2 weeks', 0, 14, 'days', {
-      step: 0.5,
+    p(
+      'How crowded is too crowded for a beach?',
+      'empty',
+      'packed',
+      0,
+      100,
+      '%'
+    ),
+    p('How many unread emails is chaos?', '0', '1,000', 0, 1000, 'plain', {
+      step: 10,
     }),
-    p('When does "night" start?', '6pm', 'midnight', 18 * 60, 24 * 60, 'time', { step: 5 }),
+    p('How bright is your phone screen right now?', 'dim', 'max', 0, 100, '%'),
+    p(
+      'How many days can you skip washing your hair?',
+      '0',
+      '2 weeks',
+      0,
+      14,
+      'days',
+      {
+        step: 0.5,
+      }
+    ),
+    p('When does "night" start?', '6pm', 'midnight', 18 * 60, 24 * 60, 'time', {
+      step: 5,
+    }),
     p('How long would you wait for a table?', '0', '90 min', 0, 90, 'min'),
     p('How many people make it a party?', '2', '50', 2, 50, 'plain'),
     p('How warm is jumper weather?', '0°C', '25°C', 0, 25, '°C', {
@@ -308,19 +347,46 @@ export const PROMPTS: readonly Prompt[] = [
     p('Where does brown become orange?', 'brown', 'orange', 0, 100, '%', {
       gradient: ['#5e3519', '#e8791c'],
     }),
-    p('How long could you last without your phone?', '0h', '2 days', 0, 48, 'h'),
-    p('How many slices of pizza is a fair share?', '1', '8', 1, 8, 'plain', { step: 0.5 }),
+    p(
+      'How long could you last without your phone?',
+      '0h',
+      '2 days',
+      0,
+      48,
+      'h'
+    ),
+    p('How many slices of pizza is a fair share?', '1', '8', 1, 8, 'plain', {
+      step: 0.5,
+    }),
     p('How old should you be to get a phone?', '5', '18', 5, 18, 'yrs'),
     p('How much of a plate should be vegetables?', 'none', 'all', 0, 100, '%'),
-    p('How long is too long for a voice note?', '0', '5 min', 0, 5, 'min', { step: 0.25 }),
+    p('How long is too long for a voice note?', '0', '5 min', 0, 5, 'min', {
+      step: 0.25,
+    }),
     p('How many alarms does it take to get up?', '1', '10', 1, 10, 'plain'),
     p('Where does lavender stop being blue?', 'blue', 'pink', 0, 100, '%', {
       gradient: ['#8fa6e8', '#b48be0', '#d98bcd'],
     }),
-    p('How many years is a "long" relationship?', '0', '20', 0, 20, 'yrs', { step: 0.5 }),
+    p('How many years is a "long" relationship?', '0', '20', 0, 20, 'yrs', {
+      step: 0.5,
+    }),
     p('What’s a good tip?', '0%', '40%', 0, 40, '%'),
-    p('How much of a book can you skim and still say you read it?', 'none', 'all', 0, 100, '%'),
-    p('How full is "full" for a phone’s storage?', 'empty', '100%', 0, 100, '%'),
+    p(
+      'How much of a book can you skim and still say you read it?',
+      'none',
+      'all',
+      0,
+      100,
+      '%'
+    ),
+    p(
+      'How full is "full" for a phone’s storage?',
+      'empty',
+      '100%',
+      0,
+      100,
+      '%'
+    ),
   ],
 ];
 

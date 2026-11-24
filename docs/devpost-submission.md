@@ -21,7 +21,7 @@ Most daily games ask "do you know the answer?" We wanted one that asks "do you k
 - **Every round reveals the moment you lock in.** The crowd's histogram grows in, the median drops into place, and your score counts up to a rating from *Lone wolf* to *Bullseye!*. After round five you get your total out of 500.
 - **Medians move all day** as more people play, and go final at midnight UTC, when the next middLE posts. Tomorrow's post shows yesterday's final score.
 - **Streaks** for consecutive days played, plus bullseyes for rounds within 2 steps of the median.
-- **The result screen points to the comments,** where the best arguments happen ("how did 40% of you think that was warm?").
+- **One tap shares your result to the comments** from your own account: your score and an emoji per round (🎯🟩🟨🟧🟥), with no answers, so the thread fills with comparable, spoiler-free results and the arguments that follow.
 
 ## How we built it
 - A Devvit Web interactive post, with a React 19 + TypeScript client styled with Tailwind 4 and hand-written CSS.

@@ -5,7 +5,8 @@ export const MAX_VALUE = 100;
 export const BULLSEYE_DISTANCE = 2;
 export const BIN_COUNT = 20;
 
-export const emptyCounts = (): number[] => new Array<number>(MAX_VALUE + 1).fill(0);
+export const emptyCounts = (): number[] =>
+  new Array<number>(MAX_VALUE + 1).fill(0);
 
 export const total = (counts: readonly number[]): number =>
   counts.reduce((sum, c) => sum + c, 0);

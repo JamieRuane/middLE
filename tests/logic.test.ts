@@ -103,3 +103,28 @@ test('value formatting', () => {
   assert.ok(temp);
   assert.equal(formatValue(temp, 40), '21°C');
 });
+
+test('share text is spoiler-free: score, emoji per round, optional streak', async () => {
+  const { shareText, shareGrid, toneFor } = await import('../src/shared/share.ts');
+  assert.equal(toneFor(98, true), 'bull');
+  assert.equal(toneFor(85, false), 'great');
+  assert.equal(toneFor(65, false), 'good');
+  assert.equal(toneFor(40, false), 'meh');
+  assert.equal(toneFor(39, false), 'low');
+  const rounds = [
+    { score: 98, bullseye: true },
+    { score: 86, bullseye: false },
+    { score: 8, bullseye: false },
+    { score: 40, bullseye: false },
+    { score: 70, bullseye: false },
+  ];
+  assert.equal(shareGrid(rounds), '🎯 🟩 🟥 🟧 🟨');
+  assert.equal(
+    shareText({ number: 3, total: 302, maxTotal: 500, rounds, streak: 4, final: false }),
+    '**middLE #3**: 302 / 500 (so far)\n\n🎯 🟩 🟥 🟧 🟨\n\n🔥 4-day streak'
+  );
+  assert.equal(
+    shareText({ number: 3, total: 302, maxTotal: 500, rounds, streak: 1, final: true }),
+    '**middLE #3**: 302 / 500\n\n🎯 🟩 🟥 🟧 🟨'
+  );
+});

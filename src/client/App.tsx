@@ -10,6 +10,8 @@ import type {
 import { ROUNDS, formatValue } from '../shared/prompts';
 import type { Prompt } from '../shared/prompts';
 import { BIN_COUNT, MAX_VALUE } from '../shared/score';
+import { shareGrid, toneFor } from '../shared/share';
+import type { Tone } from '../shared/share';
 
 const MAX_TOTAL = ROUNDS * 100;
 
@@ -95,7 +97,20 @@ const useGame = () => {
     []
   );
 
-  return { load, submitting, notice, guess, refresh };
+  const share = useCallback(async () => {
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      const state = await request('/api/share', { method: 'POST' });
+      setLoad({ kind: 'ready', state, loadedAt: Date.now() });
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Couldn’t post your comment.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, []);
+
+  return { load, submitting, notice, guess, share, refresh };
 };
 
 const useCountdown = (msToReset: number, loadedAt: number): string => {
@@ -362,14 +377,20 @@ const useCountUp = (target: number, delay: number, duration: number) => {
   return { value, landed };
 };
 
-type Tier = { label: string; tone: 'bull' | 'great' | 'good' | 'meh' | 'low' };
+const TIER_LABELS: Record<Tone, string> = {
+  bull: 'Bullseye!',
+  great: 'So close',
+  good: 'Solid read',
+  meh: 'Off the pace',
+  low: 'Lone wolf',
+};
 
-const tierFor = (score: number, bullseye: boolean): Tier => {
-  if (bullseye) return { label: 'Bullseye!', tone: 'bull' };
-  if (score >= 85) return { label: 'So close', tone: 'great' };
-  if (score >= 65) return { label: 'Solid read', tone: 'good' };
-  if (score >= 40) return { label: 'Off the pace', tone: 'meh' };
-  return { label: 'Lone wolf', tone: 'low' };
+const tierFor = (
+  score: number,
+  bullseye: boolean
+): { label: string; tone: Tone } => {
+  const tone = toneFor(score, bullseye);
+  return { label: TIER_LABELS[tone], tone };
 };
 
 const BURST_COLOURS = [
@@ -513,6 +534,7 @@ type GameProps = {
   submitting: boolean;
   notice: string | null;
   onGuess: (round: number, value: number) => void;
+  onShare: () => void;
 };
 
 const RoundScreen = ({ state, submitting, notice, onGuess }: GameProps) => {
@@ -646,7 +668,56 @@ const RoundDetail = ({
   );
 };
 
-const Summary = ({ state, loadedAt }: GameProps) => {
+/** Posts a spoiler-free result (score + one emoji per round) as a comment from the player's account. */
+const ShareRow = ({
+  state,
+  busy,
+  notice,
+  onShare,
+}: {
+  state: StateResponse;
+  busy: boolean;
+  notice: string | null;
+  onShare: () => void;
+}) => {
+  const grid = shareGrid(
+    state.results.map((r) => ({
+      score: r?.score ?? 0,
+      bullseye: r?.bullseye ?? false,
+    }))
+  );
+  return (
+    <div className="share">
+      <div className="share-preview" aria-label="What will be posted">
+        <span className="share-title">
+          #{state.number} · {state.total} / {MAX_TOTAL}
+        </span>
+        <span className="share-grid">{grid}</span>
+      </div>
+      {state.shared ? (
+        <span className="share-done">Posted ✓</span>
+      ) : (
+        <button
+          type="button"
+          className="share-btn"
+          disabled={busy}
+          onClick={onShare}
+        >
+          {busy ? 'Posting…' : 'Post to comments'}
+        </button>
+      )}
+      {notice && <p className="notice share-notice">{notice}</p>}
+    </div>
+  );
+};
+
+const Summary = ({
+  state,
+  loadedAt,
+  submitting,
+  notice,
+  onShare,
+}: GameProps) => {
   const [selected, setSelected] = useState<number | null>(null);
   const countdown = useCountdown(state.msToReset, loadedAt);
 
@@ -736,6 +807,14 @@ const Summary = ({ state, loadedAt }: GameProps) => {
 
       <footer className="after">
         <StatsRow stats={state.stats} />
+        {state.open && state.total !== null && (
+          <ShareRow
+            state={state}
+            busy={submitting}
+            notice={notice}
+            onShare={onShare}
+          />
+        )}
         {state.todayUrl ? (
           <button
             type="button"
@@ -745,9 +824,9 @@ const Summary = ({ state, loadedAt }: GameProps) => {
             Play today’s middLE →
           </button>
         ) : (
-          <p className="discuss">
-            Tap a round to see the crowd. Disagree? Say so in the comments.
-          </p>
+          state.total === null && (
+            <p className="discuss">Tap a round to see the crowd.</p>
+          )
         )}
       </footer>
     </main>
@@ -755,7 +834,7 @@ const Summary = ({ state, loadedAt }: GameProps) => {
 };
 
 export const App = () => {
-  const { load, submitting, notice, guess, refresh } = useGame();
+  const { load, submitting, notice, guess, share, refresh } = useGame();
   /** The round whose result is being revealed right after locking it in. */
   const [reveal, setReveal] = useState<number | null>(null);
 
@@ -800,6 +879,7 @@ export const App = () => {
       void guess(round, value).then((ok) => {
         if (ok) setReveal(round);
       }),
+    onShare: () => void share(),
   };
   const playing = state.open && state.total === null && state.loggedIn;
   const loggedOutToday = state.open && !state.loggedIn;

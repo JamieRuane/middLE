@@ -19,7 +19,7 @@
   },
   "permissions": {
     "redis": true,
-    "reddit": true
+    "reddit": { "enable": true, "scope": "user" }
   },
   "menu": {
     "items": [

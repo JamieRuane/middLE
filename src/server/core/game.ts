@@ -1,19 +1,41 @@
-import { context, redis } from '@devvit/web/server';
-import type { RoundResult, StateResponse, Stats, Yesterday } from '../../shared/api';
-import { addDays, dayNumber, isValidDay, msUntilNextDay, today } from '../../shared/day';
+import { context, reddit, redis } from '@devvit/web/server';
+import type {
+  RoundResult,
+  StateResponse,
+  Stats,
+  Yesterday,
+} from '../../shared/api';
+import {
+  addDays,
+  dayNumber,
+  isValidDay,
+  msUntilNextDay,
+  today,
+} from '../../shared/day';
 import { ROUNDS, promptsForDayNumber } from '../../shared/prompts';
-import { MAX_VALUE, emptyCounts, isBullseye, median, score, toBins, total } from '../../shared/score';
+import {
+  MAX_VALUE,
+  emptyCounts,
+  isBullseye,
+  median,
+  score,
+  toBins,
+  total,
+} from '../../shared/score';
+import { shareText } from '../../shared/share';
 
 // Redis layout
 //   d:{day}:r{round}:counts   hash  bucket(0..100) -> number of guesses
 //   d:{day}:r{round}:guesses  hash  userId -> guess (one per user per round, via hSetNX)
 //   d:{day}:post              str   postId of that day's post
+//   d:{day}:shared            hash  userId -> commentId of their shared result
 //   post:{postId}             str   day a post belongs to (fallback when postData is missing)
 //   u:{userId}                hash  played, streak, best, last, settled, total, scored, bull
 const keys = {
   counts: (day: string, round: number) => `d:${day}:r${round}:counts`,
   guesses: (day: string, round: number) => `d:${day}:r${round}:guesses`,
   dayPost: (day: string) => `d:${day}:post`,
+  shared: (day: string) => `d:${day}:shared`,
   postDay: (postId: string) => `post:${postId}`,
   user: (userId: string) => `u:${userId}`,
 };
@@ -75,7 +97,10 @@ export const dayForPost = async (postId: string): Promise<string> => {
   return isValidDay(stored) ? stored : today();
 };
 
-export const rememberPost = async (day: string, postId: string): Promise<void> => {
+export const rememberPost = async (
+  day: string,
+  postId: string
+): Promise<void> => {
   await Promise.all([
     redis.set(keys.dayPost(day), postId),
     redis.set(keys.postDay(postId), day),
@@ -94,7 +119,10 @@ const settle = async (userId: string, now: string): Promise<void> => {
   const u = await redis.hGetAll(userKey);
   const last = u.last;
   if (!last || last >= now || u.settled === last) return;
-  const [guesses, counts] = await Promise.all([readGuesses(last, userId), readAllCounts(last)]);
+  const [guesses, counts] = await Promise.all([
+    readGuesses(last, userId),
+    readAllCounts(last),
+  ]);
   if (isComplete(guesses)) {
     const { sum, bullseyes } = tally(guesses, counts);
     await Promise.all([
@@ -106,8 +134,12 @@ const settle = async (userId: string, now: string): Promise<void> => {
   await redis.hSet(userKey, { settled: last });
 };
 
-const readStats = async (userId: string | undefined, now: string): Promise<Stats> => {
-  if (!userId) return { streak: 0, bestStreak: 0, played: 0, bullseyes: 0, average: null };
+const readStats = async (
+  userId: string | undefined,
+  now: string
+): Promise<Stats> => {
+  if (!userId)
+    return { streak: 0, bestStreak: 0, played: 0, bullseyes: 0, average: null };
   const u = await redis.hGetAll(keys.user(userId));
   const alive = u.last === now || u.last === addDays(now, -1);
   const scored = int(u.scored);
@@ -132,7 +164,10 @@ const buildRound = (counts: number[], guess: number | null): RoundResult => {
   };
 };
 
-const readYesterday = async (userId: string, now: string): Promise<Yesterday | null> => {
+const readYesterday = async (
+  userId: string,
+  now: string
+): Promise<Yesterday | null> => {
   const day = addDays(now, -1);
   const guesses = await readGuesses(day, userId);
   if (!isComplete(guesses)) return null;
@@ -156,15 +191,21 @@ export const getState = async (postId: string): Promise<StateResponse> => {
   // A round's crowd is revealed as soon as you've locked it in (or for everyone once the day closes).
   const revealed = ROUND_INDEXES.map((r) => guesses[r] !== null || !open);
 
-  const [counts, stats, yesterday, todayPostId, players] = await Promise.all([
-    Promise.all(
-      ROUND_INDEXES.map((r) => (revealed[r] ? readCounts(day, r) : Promise.resolve(null)))
-    ),
-    readStats(userId, now),
-    userId && open ? readYesterday(userId, now) : Promise.resolve(null),
-    open ? Promise.resolve(null) : postIdForDay(now),
-    redis.hLen(keys.guesses(day, LAST_ROUND)),
-  ]);
+  const [counts, stats, yesterday, todayPostId, players, sharedId] =
+    await Promise.all([
+      Promise.all(
+        ROUND_INDEXES.map((r) =>
+          revealed[r] ? readCounts(day, r) : Promise.resolve(null)
+        )
+      ),
+      readStats(userId, now),
+      userId && open ? readYesterday(userId, now) : Promise.resolve(null),
+      open ? Promise.resolve(null) : postIdForDay(now),
+      redis.hLen(keys.guesses(day, LAST_ROUND)),
+      userId
+        ? redis.hGet(keys.shared(day), userId)
+        : Promise.resolve(undefined),
+    ]);
 
   return {
     type: 'state',
@@ -176,9 +217,17 @@ export const getState = async (postId: string): Promise<StateResponse> => {
     loggedIn: Boolean(userId),
     players,
     guesses,
-    results: counts.map((c, r) => (c ? buildRound(c, guesses[r] ?? null) : null)),
-    total: complete ? tally(guesses, counts.map((c) => c ?? emptyCounts())).sum : null,
+    results: counts.map((c, r) =>
+      c ? buildRound(c, guesses[r] ?? null) : null
+    ),
+    total: complete
+      ? tally(
+          guesses,
+          counts.map((c) => c ?? emptyCounts())
+        ).sum
+      : null,
     stats,
+    shared: Boolean(sharedId),
     yesterday,
     todayUrl: todayPostId ? postUrl(todayPostId) : null,
   };
@@ -202,7 +251,11 @@ export const submitGuess = async (
   if (next === -1) throw new GameError('You’ve already played today.');
   if (round !== next) throw new GameError('That round is already locked in.');
 
-  const fresh = await redis.hSetNX(keys.guesses(day, round), userId, String(value));
+  const fresh = await redis.hSetNX(
+    keys.guesses(day, round),
+    userId,
+    String(value)
+  );
   if (fresh === 0) throw new GameError('That round is already locked in.');
   await redis.hIncrBy(keys.counts(day, round), String(value), 1);
 
@@ -218,6 +271,60 @@ export const submitGuess = async (
         best: String(Math.max(streak, int(u.best))),
       }),
     ]);
+  }
+
+  return getState(postId);
+};
+
+/**
+ * Posts the player's spoiler-free result as a comment on the post, from their own account.
+ * The text is built here from stored guesses, so it can't be faked; one share per player per day.
+ */
+export const shareResult = async (
+  postId: NonNullable<typeof context.postId>
+): Promise<StateResponse> => {
+  const userId = context.userId;
+  if (!userId) throw new GameError('Log in to share.');
+  const day = await dayForPost(postId);
+  if (day !== today()) throw new GameError('Share on today’s middLE instead.');
+
+  if (await redis.hGet(keys.shared(day), userId)) {
+    throw new GameError('You’ve already shared today’s result.');
+  }
+
+  const guesses = await readGuesses(day, userId);
+  if (!isComplete(guesses))
+    throw new GameError('Finish all five rounds first.');
+
+  const counts = await readAllCounts(day);
+  const rounds = guesses.map((g, r) => {
+    const med = median(counts[r] ?? []) ?? g;
+    return { score: score(g, med), bullseye: isBullseye(g, med) };
+  });
+  const stats = await readStats(userId, today());
+  const text = shareText({
+    number: dayNumber(day),
+    total: rounds.reduce((sum, r) => sum + r.score, 0),
+    maxTotal: ROUNDS * 100,
+    rounds,
+    streak: stats.streak,
+    final: false,
+  });
+
+  // Claim the share slot first so a double tap can't post twice.
+  const claimed = await redis.hSetNX(keys.shared(day), userId, 'pending');
+  if (claimed === 0)
+    throw new GameError('You’ve already shared today’s result.');
+  try {
+    const comment = await reddit.submitComment({
+      id: postId,
+      text,
+      runAs: 'USER',
+    });
+    await redis.hSet(keys.shared(day), { [userId]: comment.id });
+  } catch (error) {
+    await redis.hDel(keys.shared(day), [userId]);
+    throw error;
   }
 
   return getState(postId);

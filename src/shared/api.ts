@@ -45,6 +45,8 @@ export type StateResponse = {
   /** Sum of round scores (0..500), once you've finished all rounds. */
   total: number | null;
   stats: Stats;
+  /** True once the player has posted today's result as a comment. */
+  shared: boolean;
   yesterday: Yesterday | null;
   /** Link to today's post when this post belongs to an earlier day. */
   todayUrl: string | null;
