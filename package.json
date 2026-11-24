@@ -25,7 +25,7 @@
     "@fontsource-variable/fredoka": "5.3.0",
     "@fontsource-variable/nunito": "5.3.0",
     "@hono/node-server": "2.1.6",
-    "devvit": "0.15.4",
+    "devvit": "1.0.0",
     "hono": "4.13.17",
     "react": "19.3.1",
     "react-dom": "19.3.1"
