@@ -153,10 +153,13 @@ export const getState = async (postId: string): Promise<StateResponse> => {
     ? await readGuesses(day, userId)
     : ROUND_INDEXES.map(() => null);
   const complete = isComplete(guesses);
-  const showResults = complete || !open;
+  // A round's crowd is revealed as soon as you've locked it in (or for everyone once the day closes).
+  const revealed = ROUND_INDEXES.map((r) => guesses[r] !== null || !open);
 
   const [counts, stats, yesterday, todayPostId, players] = await Promise.all([
-    showResults ? readAllCounts(day) : Promise.resolve(null),
+    Promise.all(
+      ROUND_INDEXES.map((r) => (revealed[r] ? readCounts(day, r) : Promise.resolve(null)))
+    ),
     readStats(userId, now),
     userId && open ? readYesterday(userId, now) : Promise.resolve(null),
     open ? Promise.resolve(null) : postIdForDay(now),
@@ -173,8 +176,8 @@ export const getState = async (postId: string): Promise<StateResponse> => {
     loggedIn: Boolean(userId),
     players,
     guesses,
-    results: counts ? counts.map((c, r) => buildRound(c, guesses[r] ?? null)) : null,
-    total: complete && counts ? tally(guesses, counts).sum : null,
+    results: counts.map((c, r) => (c ? buildRound(c, guesses[r] ?? null) : null)),
+    total: complete ? tally(guesses, counts.map((c) => c ?? emptyCounts())).sum : null,
     stats,
     yesterday,
     todayUrl: todayPostId ? postUrl(todayPostId) : null,

@@ -9,8 +9,8 @@ middLE is a daily game for Reddit. Each day brings five rounds, one prompt each.
 1. Open today's middLE post.
 2. Read the prompt. For example: *"Where does blue stop and green begin?"* or *"How many minutes late is fashionably late?"*
 3. Tap or drag to place your pin, then lock it in. One guess per round.
-4. Play all five rounds. The crowd stays hidden until you finish.
-5. After round five, you see your total and every round's crowd, with your pin and the median marked.
+4. As soon as you lock in, the round is revealed: the crowd's guesses so far, the median, and your round score out of 100.
+5. After round five, you get your daily total out of 500. Tap any round to look at its crowd again.
 6. Medians keep moving while people play. Results go final at midnight UTC, when the next middLE posts.
 7. Argue about it in the comments.
 

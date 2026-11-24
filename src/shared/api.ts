@@ -40,8 +40,8 @@ export type StateResponse = {
   players: number;
   /** The current player's guess per round (null = not played yet). */
   guesses: (number | null)[];
-  /** Shown once you finish all rounds, or to everyone once the day is closed. */
-  results: RoundResult[] | null;
+  /** Per round: the crowd's result once you've locked that round in (or for everyone once the day is closed). */
+  results: (RoundResult | null)[];
   /** Sum of round scores (0..500), once you've finished all rounds. */
   total: number | null;
   stats: Stats;

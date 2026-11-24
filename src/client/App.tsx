@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { navigateTo } from '@devvit/web/client';
-import type { ErrorResponse, RoundResult, StateResponse, Stats } from '../shared/api';
+import type {
+  ErrorResponse,
+  RoundResult,
+  StateResponse,
+  Stats,
+} from '../shared/api';
 import { ROUNDS, formatValue } from '../shared/prompts';
 import type { Prompt } from '../shared/prompts';
 import { BIN_COUNT, MAX_VALUE } from '../shared/score';
@@ -20,7 +25,10 @@ const hasType = (x: unknown, type: string): boolean =>
 const isState = (x: unknown): x is StateResponse => hasType(x, 'state');
 const isError = (x: unknown): x is ErrorResponse => hasType(x, 'error');
 
-const request = async (path: string, init?: RequestInit): Promise<StateResponse> => {
+const request = async (
+  path: string,
+  init?: RequestInit
+): Promise<StateResponse> => {
   const res = await fetch(path, init);
   const data: unknown = await res.json().catch(() => null);
   if (isState(data)) return data;
@@ -37,11 +45,15 @@ const useGame = () => {
     (isCurrent: () => boolean) =>
       request('/api/state').then(
         (state) => {
-          if (isCurrent()) setLoad({ kind: 'ready', state, loadedAt: Date.now() });
+          if (isCurrent())
+            setLoad({ kind: 'ready', state, loadedAt: Date.now() });
         },
         (e: unknown) => {
           if (isCurrent())
-            setLoad({ kind: 'error', message: e instanceof Error ? e.message : 'Couldn’t load.' });
+            setLoad({
+              kind: 'error',
+              message: e instanceof Error ? e.message : 'Couldn’t load.',
+            });
         }
       ),
     []
@@ -60,22 +72,28 @@ const useGame = () => {
     void loadState(() => true);
   }, [loadState]);
 
-  const guess = useCallback(async (round: number, value: number) => {
-    setSubmitting(true);
-    setNotice(null);
-    try {
-      const state = await request('/api/guess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round, value }),
-      });
-      setLoad({ kind: 'ready', state, loadedAt: Date.now() });
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'Couldn’t save your guess.');
-    } finally {
-      setSubmitting(false);
-    }
-  }, []);
+  /** Resolves true when the guess was saved. */
+  const guess = useCallback(
+    async (round: number, value: number): Promise<boolean> => {
+      setSubmitting(true);
+      setNotice(null);
+      try {
+        const state = await request('/api/guess', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ round, value }),
+        });
+        setLoad({ kind: 'ready', state, loadedAt: Date.now() });
+        return true;
+      } catch (e) {
+        setNotice(e instanceof Error ? e.message : 'Couldn’t save your guess.');
+        return false;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    []
+  );
 
   return { load, submitting, notice, guess, refresh };
 };
@@ -203,13 +221,18 @@ const Track = ({ prompt, value, onChange }: TrackProps) => {
         aria-valuemin={0}
         aria-valuemax={MAX_VALUE}
         aria-valuenow={value ?? undefined}
-        aria-valuetext={value === null ? 'No pin placed' : formatValue(prompt, value)}
+        aria-valuetext={
+          value === null ? 'No pin placed' : formatValue(prompt, value)
+        }
         aria-disabled={!live}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onKeyDown={onKeyDown}
       >
-        <div className={`bar${gradient ? ' has-gradient' : ''}`} style={gradient}>
+        <div
+          className={`bar${gradient ? ' has-gradient' : ''}`}
+          style={gradient}
+        >
           {[25, 50, 75].map((t) => (
             <span key={t} className="tick" style={{ left: `${t}%` }} />
           ))}
@@ -230,7 +253,9 @@ const Track = ({ prompt, value, onChange }: TrackProps) => {
 };
 
 // Before you finish: the crowd is there, but its shape is hidden.
-const GHOST = [2, 3, 4, 6, 9, 13, 18, 24, 31, 38, 44, 48, 46, 40, 32, 24, 16, 10, 6, 3];
+const GHOST = [
+  2, 3, 4, 6, 9, 13, 18, 24, 31, 38, 44, 48, 46, 40, 32, 24, 16, 10, 6, 3,
+];
 
 const HiddenCrowd = ({ players }: { players: number }) => (
   <div className="hist is-hidden">
@@ -249,29 +274,209 @@ const Histogram = ({
   result,
   guess,
   prompt,
+  animate = false,
 }: {
   result: RoundResult;
   guess: number | null;
   prompt: Prompt;
+  /** Staged entrance: bars grow, then the median drops in, then the gap to your pin stretches. */
+  animate?: boolean;
 }) => {
   const max = Math.max(1, ...result.bins);
   const width = MAX_VALUE / BIN_COUNT;
-  const mineBin = guess === null ? -1 : Math.min(BIN_COUNT - 1, Math.floor(guess / width));
+  const mineBin =
+    guess === null ? -1 : Math.min(BIN_COUNT - 1, Math.floor(guess / width));
+  const med = result.median;
   return (
-    <div className="hist" aria-hidden="true">
+    <div className={`hist${animate ? ' is-animated' : ''}`} aria-hidden="true">
       {result.bins.map((count, i) => (
         <div
           key={i}
           className={`hist-bar${i === mineBin ? ' is-mine' : ''}`}
-          style={{ height: `${count === 0 ? 3 : Math.max(8, (count / max) * 100)}%` }}
+          style={{
+            height: `${count === 0 ? 3 : Math.max(8, (count / max) * 100)}%`,
+            animationDelay: `${i * 28}ms`,
+          }}
         />
       ))}
-      {result.median !== null && (
-        <div className="median-line" style={{ left: `${result.median}%` }}>
-          <span>median {formatValue(prompt, result.median)}</span>
+      {med !== null && (
+        <div className="median-line" style={{ left: `${med}%` }}>
+          <span>median {formatValue(prompt, med)}</span>
         </div>
       )}
+      {animate &&
+        med !== null &&
+        guess !== null &&
+        Math.abs(guess - med) >= 1 && (
+          <div
+            className={`gap ${guess < med ? 'from-left' : 'from-right'}`}
+            style={{
+              left: `${Math.min(guess, med)}%`,
+              width: `${Math.abs(guess - med)}%`,
+            }}
+          />
+        )}
     </div>
+  );
+};
+
+// ---------- round reveal ----------
+
+const REVEAL_START = 1100; // ms: score starts counting once the crowd has drawn in
+const REVEAL_COUNT = 900; // ms: count-up duration
+
+const prefersReducedMotion = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const useCountUp = (target: number, delay: number, duration: number) => {
+  const [reduce] = useState(prefersReducedMotion);
+  const [value, setValue] = useState(reduce ? target : 0);
+  const [landed, setLanded] = useState(reduce);
+
+  useEffect(() => {
+    if (reduce) return;
+    let raf = 0;
+    const start = performance.now() + delay;
+    const tick = (t: number) => {
+      const p = Math.min(1, Math.max(0, (t - start) / duration));
+      setValue(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else setLanded(true);
+    };
+    raf = requestAnimationFrame(tick);
+    // rAF pauses in background tabs; make sure the final score always lands.
+    const fallback = window.setTimeout(() => {
+      setValue(target);
+      setLanded(true);
+    }, delay + duration + 80);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(fallback);
+    };
+  }, [target, delay, duration, reduce]);
+
+  return { value, landed };
+};
+
+type Tier = { label: string; tone: 'bull' | 'great' | 'good' | 'meh' | 'low' };
+
+const tierFor = (score: number, bullseye: boolean): Tier => {
+  if (bullseye) return { label: 'Bullseye!', tone: 'bull' };
+  if (score >= 85) return { label: 'So close', tone: 'great' };
+  if (score >= 65) return { label: 'Solid read', tone: 'good' };
+  if (score >= 40) return { label: 'Off the pace', tone: 'meh' };
+  return { label: 'Lone wolf', tone: 'low' };
+};
+
+const BURST_COLOURS = [
+  'var(--accent)',
+  'var(--median)',
+  'var(--ink)',
+  '#f2b53a',
+];
+
+/** A small confetti pop around the score for great rounds. */
+const Burst = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || prefersReducedMotion()) return;
+    const anims = Array.from(el.children).map((child, i) => {
+      const angle = (i / el.children.length) * 360 + (i % 2) * 12;
+      const dist = 38 + (i % 3) * 14;
+      return child.animate(
+        [
+          {
+            transform: `rotate(${angle}deg) translateY(0) scale(1)`,
+            opacity: 1,
+          },
+          {
+            transform: `rotate(${angle}deg) translateY(-${dist}px) scale(0.4)`,
+            opacity: 0,
+          },
+        ],
+        {
+          duration: 700,
+          easing: 'cubic-bezier(0.1, 0.8, 0.3, 1)',
+          fill: 'forwards',
+        }
+      );
+    });
+    return () => anims.forEach((a) => a.cancel());
+  }, []);
+  return (
+    <div className="burst" ref={ref} aria-hidden="true">
+      {Array.from({ length: 14 }, (_, i) => (
+        <span
+          key={i}
+          style={{ background: BURST_COLOURS[i % BURST_COLOURS.length] }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const RevealScreen = ({
+  state,
+  round,
+  onNext,
+}: {
+  state: StateResponse;
+  round: number;
+  onNext: () => void;
+}) => {
+  const prompt = state.prompts[round];
+  const result = state.results[round];
+  const guess = state.guesses[round] ?? null;
+  const target = result?.score ?? 0;
+  const { value, landed } = useCountUp(target, REVEAL_START, REVEAL_COUNT);
+  if (!prompt || !result || guess === null) return null;
+
+  const tier = tierFor(target, result.bullseye);
+  const last = round === ROUNDS - 1;
+  const runningTotal = state.results.reduce(
+    (sum, r) => sum + (r?.score ?? 0),
+    0
+  );
+
+  return (
+    <main className="app reveal">
+      <Header state={state} />
+      <RoundDots current={round} done={round + 1} />
+      <h1 className="prompt is-small">{prompt.text}</h1>
+
+      <div className="field">
+        <Histogram result={result} guess={guess} prompt={prompt} animate />
+        <Track prompt={prompt} value={guess} onChange={null} />
+      </div>
+
+      <section
+        className={`reveal-score tone-${tier.tone}${landed ? ' is-landed' : ''}`}
+        aria-live="polite"
+      >
+        <div className="reveal-num-wrap">
+          {landed && target >= 85 && <Burst />}
+          <span className="score-num">{value}</span>
+          <span className="score-of">/ 100</span>
+        </div>
+        <div className="reveal-meta">
+          <span className="tier">{landed ? tier.label : ' '}</span>
+          <span className="muted small">
+            median{' '}
+            {result.median === null ? '–' : formatValue(prompt, result.median)}{' '}
+            · you {formatValue(prompt, guess)}
+          </span>
+          <span className={`running${landed ? ' is-shown' : ''}`}>
+            Total <strong>{runningTotal}</strong> / {MAX_TOTAL}
+          </span>
+        </div>
+      </section>
+
+      <button type="button" className="lock reveal-next" onClick={onNext}>
+        {last ? 'See your total →' : 'Next round →'}
+      </button>
+    </main>
   );
 };
 
@@ -321,8 +526,10 @@ const RoundScreen = ({ state, submitting, notice, onGuess }: GameProps) => {
 
       {round === 0 && canPlay && state.yesterday && (
         <p className="yesterday">
-          Yesterday you scored <strong>{state.yesterday.total}</strong> / {MAX_TOTAL}
-          {state.yesterday.bullseyes > 0 && ` with ${plural(state.yesterday.bullseyes, 'bullseye')}`}
+          Yesterday you scored <strong>{state.yesterday.total}</strong> /{' '}
+          {MAX_TOTAL}
+          {state.yesterday.bullseyes > 0 &&
+            ` with ${plural(state.yesterday.bullseyes, 'bullseye')}`}
           .
         </p>
       )}
@@ -390,7 +597,7 @@ const RoundDetail = ({
   onBack: () => void;
 }) => {
   const prompt = state.prompts[round];
-  const result = state.results?.[round];
+  const result = state.results[round];
   const guess = state.guesses[round] ?? null;
   if (!prompt || !result) return null;
   return (
@@ -411,13 +618,15 @@ const RoundDetail = ({
       <p className="detail-line">
         {result.median !== null && (
           <>
-            <span className="label">Median</span> <strong>{formatValue(prompt, result.median)}</strong>
+            <span className="label">Median</span>{' '}
+            <strong>{formatValue(prompt, result.median)}</strong>
           </>
         )}
         {guess !== null && (
           <>
             {' · '}
-            <span className="label">You</span> <strong>{formatValue(prompt, guess)}</strong>
+            <span className="label">You</span>{' '}
+            <strong>{formatValue(prompt, guess)}</strong>
           </>
         )}
         {result.score !== null && (
@@ -438,11 +647,17 @@ const Summary = ({ state, loadedAt }: GameProps) => {
   const countdown = useCountdown(state.msToReset, loadedAt);
 
   if (selected !== null) {
-    return <RoundDetail state={state} round={selected} onBack={() => setSelected(null)} />;
+    return (
+      <RoundDetail
+        state={state}
+        round={selected}
+        onBack={() => setSelected(null)}
+      />
+    );
   }
 
-  const results = state.results ?? [];
-  const bullseyes = results.filter((r) => r.bullseye).length;
+  const results = state.results;
+  const bullseyes = results.filter((r) => r?.bullseye).length;
   const few = state.open && state.players < 5;
 
   return (
@@ -457,8 +672,12 @@ const Summary = ({ state, loadedAt }: GameProps) => {
               <span className="score-of">/ {MAX_TOTAL}</span>
             </div>
             <div className="total-meta">
-              <span className="score-unit">{state.open ? 'Score so far' : 'Final score'}</span>
-              {bullseyes > 0 && <span className="badge">{plural(bullseyes, 'bullseye')}</span>}
+              <span className="score-unit">
+                {state.open ? 'Score so far' : 'Final score'}
+              </span>
+              {bullseyes > 0 && (
+                <span className="badge">{plural(bullseyes, 'bullseye')}</span>
+              )}
               <span className="muted small">
                 {few
                   ? `Only ${plural(state.players, 'player')} so far. Medians will move.`
@@ -472,7 +691,9 @@ const Summary = ({ state, loadedAt }: GameProps) => {
             <span className="score-unit">
               {state.open ? 'Log in to play' : 'You sat this one out'}
             </span>
-            <span className="muted small">{plural(state.players, 'player')} · final results</span>
+            <span className="muted small">
+              {plural(state.players, 'player')} · final results
+            </span>
           </div>
         )}
       </section>
@@ -483,13 +704,21 @@ const Summary = ({ state, loadedAt }: GameProps) => {
           const g = state.guesses[i] ?? null;
           return (
             <li key={i}>
-              <button type="button" className="round-row" onClick={() => setSelected(i)}>
+              <button
+                type="button"
+                className="round-row"
+                onClick={() => setSelected(i)}
+              >
                 <span className="round-num">{i + 1}</span>
                 <span className="round-body">
                   <span className="round-text">{prompt.text}</span>
                   <span className="round-sub">
                     {g !== null && <>you {formatValue(prompt, g)} · </>}
-                    {r?.median != null ? <>median {formatValue(prompt, r.median)}</> : 'no guesses'}
+                    {r?.median != null ? (
+                      <>median {formatValue(prompt, r.median)}</>
+                    ) : (
+                      'no guesses'
+                    )}
                   </span>
                 </span>
                 <span className={`round-score${r?.bullseye ? ' is-bull' : ''}`}>
@@ -504,11 +733,17 @@ const Summary = ({ state, loadedAt }: GameProps) => {
       <footer className="after">
         <StatsRow stats={state.stats} />
         {state.todayUrl ? (
-          <button type="button" className="next" onClick={() => navigateTo(state.todayUrl ?? '')}>
+          <button
+            type="button"
+            className="next"
+            onClick={() => navigateTo(state.todayUrl ?? '')}
+          >
             Play today’s middLE →
           </button>
         ) : (
-          <p className="discuss">Tap a round to see the crowd. Disagree? Say so in the comments.</p>
+          <p className="discuss">
+            Tap a round to see the crowd. Disagree? Say so in the comments.
+          </p>
         )}
       </footer>
     </main>
@@ -517,6 +752,8 @@ const Summary = ({ state, loadedAt }: GameProps) => {
 
 export const App = () => {
   const { load, submitting, notice, guess, refresh } = useGame();
+  /** The round whose result is being revealed right after locking it in. */
+  const [reveal, setReveal] = useState<number | null>(null);
 
   if (load.kind === 'loading') {
     return (
@@ -539,12 +776,26 @@ export const App = () => {
   }
 
   const { state, loadedAt } = load;
+  if (reveal !== null && state.results[reveal]) {
+    return (
+      <RevealScreen
+        key={`${state.day}-reveal-${reveal}`}
+        state={state}
+        round={reveal}
+        onNext={() => setReveal(null)}
+      />
+    );
+  }
+
   const props: GameProps = {
     state,
     loadedAt,
     submitting,
     notice,
-    onGuess: (round, value) => void guess(round, value),
+    onGuess: (round, value) =>
+      void guess(round, value).then((ok) => {
+        if (ok) setReveal(round);
+      }),
   };
   const playing = state.open && state.total === null && state.loggedIn;
   const loggedOutToday = state.open && !state.loggedIn;

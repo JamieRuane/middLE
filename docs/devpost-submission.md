@@ -18,7 +18,7 @@ Most daily games ask "do you know the answer?" We wanted one that asks "do you k
 ## What it does
 - **Five rounds a day, one pin each.** For example: "Where does blue stop and green begin?", "How many minutes late is fashionably late?" or "When does evening start?"
 - **You're scored on distance from the crowd's median, not on being correct.** Each round is worth up to 100 points, for a daily total out of 500.
-- **The crowd stays hidden until round five.** Then you see your total and every round's histogram, with your pin and the median marked.
+- **Every round reveals the moment you lock in.** The crowd's histogram grows in, the median drops into place, and your score counts up to a rating from *Lone wolf* to *Bullseye!*. After round five you get your total out of 500.
 - **Medians move all day** as more people play, and go final at midnight UTC, when the next middLE posts. Tomorrow's post shows yesterday's final score.
 - **Streaks** for consecutive days played, plus bullseyes for rounds within 2 steps of the median.
 - **The result screen points to the comments,** where the best arguments happen ("how did 40% of you think that was warm?").
