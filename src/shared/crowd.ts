@@ -91,11 +91,13 @@ export type Outcome = {
 export const outcome = (
   real: readonly number[],
   warmup: readonly number[],
-  guess: number | null
+  guess: number | null,
+  /** The player's guess as recorded in `real` (differs from `guess` on a practice replay). */
+  own: number | null = guess
 ): Outcome => {
   const others = [...real];
-  if (guess !== null && (others[guess] ?? 0) > 0)
-    others[guess] = (others[guess] ?? 0) - 1;
+  if (own !== null && (others[own] ?? 0) > 0)
+    others[own] = (others[own] ?? 0) - 1;
   const w = warmupWeight(total(others));
   const scaledWarmup = warmup.map((c) => c * w);
   const crowd = others.map((c, v) => c + (scaledWarmup[v] ?? 0));

@@ -63,3 +63,31 @@ export type ErrorResponse = {
   type: 'error';
   message: string;
 };
+
+export type PracticeGameInfo = {
+  id: number;
+  title: string;
+  blurb: string;
+  /** The player's best total (0..500), or null if they haven't finished it. */
+  best: number | null;
+  /** People who have finished this practice game. */
+  players: number;
+};
+
+export type PracticeListResponse = {
+  type: 'practice-list';
+  games: PracticeGameInfo[];
+};
+
+export type PracticeGuessRequest = {
+  game: number;
+  round: number;
+  value: number;
+};
+
+export type PracticeRoundResponse = {
+  type: 'practice-round';
+  result: RoundResult;
+  /** Updated personal best after the last round (null otherwise, or when logged out). */
+  best: number | null;
+};

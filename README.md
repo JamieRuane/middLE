@@ -25,6 +25,16 @@ middLE is a daily game for Reddit. Each day brings five rounds, one prompt each.
 
 Prompts come from a shuffled pool, so no prompt repeats until the whole pool has been used.
 
+## Practice games
+
+Three fixed practice games (15 prompts) are always available from the round screen ("New here? Try a practice game first") and from the results screen ("Practice"):
+
+1. **Warm-up**: the five-second rule, terms and conditions, snoozing, Santa, pizza.
+2. **Colour Clash**: five colour boundaries, from sky blue to maroon.
+3. **Hot Takes**: reclining plane seats, socks with sandals, dishes in the sink.
+
+They're the same for everyone and never change, and they're kept out of the daily pool. Practice rounds use the same reveal and scoring as the daily game. The practice crowd builds up from each player's first attempt, topped up by the warm-up crowd. You can replay as often as you like; your best score is kept, and practice never touches streaks or stats.
+
 ## Coming soon
 
 - Flair for the players who read the crowd best

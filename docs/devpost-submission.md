@@ -20,6 +20,7 @@ Most daily games ask "do you know the answer?" We wanted one that asks "do you k
 - **You're scored on distance from the crowd's median, not on being correct.** Each round is worth up to 100 points, for a daily total out of 500.
 - **Every round reveals the moment you lock in.** The crowd's histogram grows in, the median drops into place, and your score counts up to a rating from *Lone wolf* to *Bullseye!*. After round five you get your total out of 500.
 - **Medians move all day** as more people play, and go final at midnight UTC, when the next middLE posts. Tomorrow's post shows yesterday's final score.
+- **Three fixed practice games** (Warm-up, Colour Clash, Hot Takes) let newcomers learn the game before their first real day. They're replayable, keep a personal best, and never touch streaks.
 - **Streaks** for consecutive days played, plus bullseyes for rounds within 2 steps of the median.
 - **One tap shares your result to the comments** from your own account: your score and an emoji per round (🎯🟩🟨🟧🟥), with no answers, so the thread fills with comparable, spoiler-free results and the arguments that follow.
 
