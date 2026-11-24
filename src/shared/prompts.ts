@@ -1,7 +1,8 @@
 // The daily prompts. Every prompt is answered on the same 0..100 track;
 // `min`/`max`/`unit` only change how the value is shown to the player.
 
-export type Unit = 'plain' | '%' | 'min' | 'h' | '°C' | 'yrs' | 'days' | 'time';
+export type Unit =
+  'plain' | '%' | 'sec' | 'min' | 'h' | '°C' | 'yrs' | 'days' | 'time';
 
 export type Prompt = {
   text: string;
@@ -683,6 +684,8 @@ export const formatValue = (prompt: Prompt, value: number): string => {
       return `${trim(x)}°C`;
     case 'yrs':
       return `${trim(x)} yrs`;
+    case 'sec':
+      return `${trim(x)}s`;
     case 'days':
       return `${trim(x)} ${x === 1 ? 'day' : 'days'}`;
     case 'plain':

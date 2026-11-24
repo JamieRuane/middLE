@@ -213,3 +213,40 @@ test('outcome: your own guess is excluded and the warm-up fades as players arriv
   // Spectators (no guess) see everyone plus the warm-up.
   assert.equal(outcome(countsOf(90), warm, null).score, null);
 });
+
+test('practice: 3 fixed games of 5, never in the daily pool, warm-ups are stable', async () => {
+  const { PRACTICE_GAMES, practiceWarmup } =
+    await import('../src/shared/practice.ts');
+  const { expectedPosition } = await import('../src/shared/crowd.ts');
+  assert.equal(PRACTICE_GAMES.length, 3);
+  const daily = new Set(PROMPTS.map((p) => p.text));
+  const seen = new Set();
+  for (const g of PRACTICE_GAMES) {
+    assert.equal(g.prompts.length, ROUNDS);
+    for (const [r, p] of g.prompts.entries()) {
+      assert.ok(
+        !daily.has(p.text),
+        `practice prompt also in daily pool: ${p.text}`
+      );
+      assert.ok(!seen.has(p.text), `duplicate practice prompt: ${p.text}`);
+      seen.add(p.text);
+      const pos = expectedPosition(p);
+      assert.ok(pos >= 0 && pos <= 100, p.text);
+      assert.ok(formatValue(p, 0).length > 0 && formatValue(p, 100).length > 0);
+      assert.deepEqual(practiceWarmup(g.id, r), practiceWarmup(g.id, r));
+      assert.equal(
+        practiceWarmup(g.id, r).reduce((a, b) => a + b, 0),
+        30
+      );
+    }
+  }
+  assert.equal(seen.size, 15);
+});
+
+test('outcome: a practice replay is scored without removing someone else’s guess', async () => {
+  const { outcome } = await import('../src/shared/crowd.ts');
+  const real = countsOf(...new Array(30).fill(50), 20); // 30 others at 50, my first attempt at 20
+  const replay = outcome(real, emptyCounts(), 80, 20); // now guessing 80; my stored guess is 20
+  assert.equal(replay.median, 50);
+  assert.equal(replay.score, 40);
+});

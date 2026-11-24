@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, PointerEvent } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import { navigateTo } from '@devvit/web/client';
 import type {
   ErrorResponse,
+  PracticeGameInfo,
+  PracticeListResponse,
+  PracticeRoundResponse,
   RoundResult,
   StateResponse,
   Stats,
@@ -12,6 +15,8 @@ import type { Prompt } from '../shared/prompts';
 import { BIN_COUNT, MAX_VALUE } from '../shared/score';
 import { shareGrid, toneFor } from '../shared/share';
 import { WARMUP_SIZE } from '../shared/crowd';
+import { PRACTICE_GAMES } from '../shared/practice';
+import type { PracticeGame } from '../shared/practice';
 import type { Tone } from '../shared/share';
 
 const MAX_TOTAL = ROUNDS * 100;
@@ -273,15 +278,16 @@ const GHOST = [
   2, 3, 4, 6, 9, 13, 18, 24, 31, 38, 44, 48, 46, 40, 32, 24, 16, 10, 6, 3,
 ];
 
-const HiddenCrowd = ({ players }: { players: number }) => (
+const HiddenCrowd = ({ players, note }: { players: number; note?: string }) => (
   <div className="hist is-hidden">
     {GHOST.map((h, i) => (
       <div key={i} className="hist-bar" style={{ height: `${h * 2}%` }} />
     ))}
     <p className="hidden-note">
-      {players === 0
-        ? 'Nobody’s finished yet. Be the first.'
-        : `${plural(players, 'player')} in · revealed after round ${ROUNDS}`}
+      {note ??
+        (players === 0
+          ? 'Nobody’s finished yet. Be the first.'
+          : `${plural(players, 'player')} in · revealed after round ${ROUNDS}`)}
     </p>
   </div>
 );
@@ -459,32 +465,35 @@ const Burst = () => {
   );
 };
 
-const RevealScreen = ({
-  state,
-  round,
-  onNext,
-}: {
-  state: StateResponse;
+type RevealViewProps = {
+  /** Header row (daily header or practice header). */
+  top: ReactNode;
   round: number;
+  prompt: Prompt;
+  result: RoundResult;
+  guess: number;
+  runningTotal: number;
   onNext: () => void;
-}) => {
-  const prompt = state.prompts[round];
-  const result = state.results[round];
-  const guess = state.guesses[round] ?? null;
-  const target = result?.score ?? 0;
-  const { value, landed } = useCountUp(target, REVEAL_START, REVEAL_COUNT);
-  if (!prompt || !result || guess === null) return null;
+};
 
+/** The animated per-round reveal, shared by daily and practice games. */
+const RevealView = ({
+  top,
+  round,
+  prompt,
+  result,
+  guess,
+  runningTotal,
+  onNext,
+}: RevealViewProps) => {
+  const target = result.score ?? 0;
+  const { value, landed } = useCountUp(target, REVEAL_START, REVEAL_COUNT);
   const tier = tierFor(target, result.bullseye);
   const last = round === ROUNDS - 1;
-  const runningTotal = state.results.reduce(
-    (sum, r) => sum + (r?.score ?? 0),
-    0
-  );
 
   return (
     <main className="app reveal">
-      <Header state={state} />
+      {top}
       <RoundDots current={round} done={round + 1} />
       <h1 className="prompt is-small">{prompt.text}</h1>
 
@@ -523,6 +532,32 @@ const RevealScreen = ({
   );
 };
 
+const RevealScreen = ({
+  state,
+  round,
+  onNext,
+}: {
+  state: StateResponse;
+  round: number;
+  onNext: () => void;
+}) => {
+  const prompt = state.prompts[round];
+  const result = state.results[round];
+  const guess = state.guesses[round] ?? null;
+  if (!prompt || !result || guess === null) return null;
+  return (
+    <RevealView
+      top={<Header state={state} />}
+      round={round}
+      prompt={prompt}
+      result={result}
+      guess={guess}
+      runningTotal={state.results.reduce((sum, r) => sum + (r?.score ?? 0), 0)}
+      onNext={onNext}
+    />
+  );
+};
+
 const StatsRow = ({ stats }: { stats: Stats }) => (
   <dl className="stats">
     <div>
@@ -553,9 +588,16 @@ type GameProps = {
   notice: string | null;
   onGuess: (round: number, value: number) => void;
   onShare: () => void;
+  onPractice: () => void;
 };
 
-const RoundScreen = ({ state, submitting, notice, onGuess }: GameProps) => {
+const RoundScreen = ({
+  state,
+  submitting,
+  notice,
+  onGuess,
+  onPractice,
+}: GameProps) => {
   const done = state.guesses.filter((g) => g !== null).length;
   const round = Math.min(done, ROUNDS - 1);
   const prompt = state.prompts[round];
@@ -623,9 +665,19 @@ const RoundScreen = ({ state, submitting, notice, onGuess }: GameProps) => {
                   : `Lock in ${formatValue(prompt, draft)}`}
           </button>
           {notice && <p className="notice">{notice}</p>}
+          {done === 0 && draft === null && (
+            <button type="button" className="link-btn" onClick={onPractice}>
+              New here? Try a practice game first →
+            </button>
+          )}
         </div>
       ) : (
-        <p className="notice">Log in to Reddit to play today’s middLE.</p>
+        <div className="actions">
+          <p className="notice">Log in to Reddit to play today’s middLE.</p>
+          <button type="button" className="link-btn" onClick={onPractice}>
+            Try a practice game →
+          </button>
+        </div>
       )}
     </main>
   );
@@ -739,6 +791,7 @@ const Summary = ({
   submitting,
   notice,
   onShare,
+  onPractice,
 }: GameProps) => {
   const [selected, setSelected] = useState<number | null>(null);
   const countdown = useCountdown(state.msToReset, loadedAt);
@@ -828,7 +881,12 @@ const Summary = ({
       </ol>
 
       <footer className="after">
-        <StatsRow stats={state.stats} />
+        <div className="stats-row">
+          <StatsRow stats={state.stats} />
+          <button type="button" className="link-btn" onClick={onPractice}>
+            Practice →
+          </button>
+        </div>
         {state.open && state.total !== null && (
           <ShareRow
             state={state}
@@ -855,10 +913,328 @@ const Summary = ({
   );
 };
 
+// ---------- practice ----------
+
+const isPracticeList = (x: unknown): x is PracticeListResponse =>
+  hasType(x, 'practice-list');
+const isPracticeRound = (x: unknown): x is PracticeRoundResponse =>
+  hasType(x, 'practice-round');
+
+const fetchAs = async <T,>(
+  path: string,
+  guard: (x: unknown) => x is T,
+  init?: RequestInit
+): Promise<T> => {
+  const res = await fetch(path, init);
+  const data: unknown = await res.json().catch(() => null);
+  if (guard(data)) return data;
+  if (isError(data)) throw new Error(data.message);
+  throw new Error('Something went wrong. Try again.');
+};
+
+const PracticeMenu = ({
+  onBack,
+  onPick,
+}: {
+  onBack: () => void;
+  onPick: (game: PracticeGame, best: number | null) => void;
+}) => {
+  const [info, setInfo] = useState<PracticeGameInfo[] | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    fetchAs('/api/practice', isPracticeList).then(
+      (r) => {
+        if (current) setInfo(r.games);
+      },
+      () => {
+        // Bests are extras; the games still work without them.
+      }
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  return (
+    <main className="app">
+      <header className="top">
+        <button type="button" className="back" onClick={onBack}>
+          ← Today’s game
+        </button>
+        <Wordmark />
+      </header>
+      <h1 className="prompt">Practice games</h1>
+      <p className="hint">
+        Three fixed games, the same for everyone. Play as often as you like.
+        They never touch your streak.
+      </p>
+      <ol className="practice-list">
+        {PRACTICE_GAMES.map((game) => {
+          const best = info?.find((g) => g.id === game.id)?.best ?? null;
+          return (
+            <li key={game.id}>
+              <button
+                type="button"
+                className="practice-card"
+                onClick={() => onPick(game, best)}
+              >
+                <span className="practice-num">{game.id + 1}</span>
+                <span className="practice-body">
+                  <span className="practice-title">{game.title}</span>
+                  <span className="practice-blurb">{game.blurb}</span>
+                </span>
+                <span className="practice-best">
+                  {best === null ? (
+                    <span className="practice-play">Play</span>
+                  ) : (
+                    <>
+                      <strong>{best}</strong>
+                      <small>best</small>
+                    </>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </main>
+  );
+};
+
+type PracticePhase = 'play' | 'reveal' | 'done';
+
+const PracticeScreen = ({
+  game,
+  initialBest,
+  onExit,
+  onMenu,
+}: {
+  game: PracticeGame;
+  initialBest: number | null;
+  onExit: () => void;
+  onMenu: () => void;
+}) => {
+  const [round, setRound] = useState(0);
+  const [phase, setPhase] = useState<PracticePhase>('play');
+  const [draft, setDraft] = useState<number | null>(null);
+  const [guesses, setGuesses] = useState<number[]>([]);
+  const [results, setResults] = useState<RoundResult[]>([]);
+  const [best, setBest] = useState<number | null>(initialBest);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const prompt = game.prompts[round];
+  const total = results.reduce((sum, r) => sum + (r.score ?? 0), 0);
+  const top = (
+    <header className="top">
+      <button type="button" className="back" onClick={onMenu}>
+        ← Practice
+      </button>
+      <span className="meta-chip practice-chip">{game.title}</span>
+    </header>
+  );
+
+  const lock = async () => {
+    if (draft === null) return;
+    const value = draft;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetchAs('/api/practice/guess', isPracticeRound, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: game.id, round, value }),
+      });
+      setGuesses((g) => [...g.slice(0, round), value]);
+      setResults((rs) => [...rs.slice(0, round), r.result]);
+      if (r.best !== null) setBest(r.best);
+      setDraft(null);
+      setPhase('reveal');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Couldn’t score that round.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const next = () => {
+    if (round >= ROUNDS - 1) {
+      setPhase('done');
+    } else {
+      setRound(round + 1);
+      setPhase('play');
+    }
+  };
+
+  const restart = () => {
+    setRound(0);
+    setGuesses([]);
+    setResults([]);
+    setDraft(null);
+    setPhase('play');
+  };
+
+  if (phase === 'reveal') {
+    const result = results[round];
+    const guess = guesses[round];
+    if (prompt && result && guess !== undefined) {
+      return (
+        <RevealView
+          key={round}
+          top={top}
+          round={round}
+          prompt={prompt}
+          result={result}
+          guess={guess}
+          runningTotal={total}
+          onNext={next}
+        />
+      );
+    }
+  }
+
+  if (phase === 'done') {
+    const isBest = best !== null && total >= best;
+    return (
+      <main className="app">
+        {top}
+        <section className="total">
+          <div className="total-score">
+            <span className="score-num">{total}</span>
+            <span className="score-of">/ {MAX_TOTAL}</span>
+          </div>
+          <div className="total-meta">
+            <span className="score-unit">Practice score</span>
+            {isBest ? (
+              <span className="badge">Personal best</span>
+            ) : (
+              best !== null && (
+                <span className="muted small">Your best: {best}</span>
+              )
+            )}
+          </div>
+        </section>
+        <ol className="round-list">
+          {game.prompts.map((p, i) => {
+            const r = results[i];
+            const g = guesses[i];
+            return (
+              <li key={i}>
+                <div className="round-row is-static">
+                  <span className="round-num">{i + 1}</span>
+                  <span className="round-body">
+                    <span className="round-text">{p.text}</span>
+                    <span className="round-sub">
+                      {g !== undefined && <>you {formatValue(p, g)} · </>}
+                      {r?.median != null && (
+                        <>median {formatValue(p, r.median)}</>
+                      )}
+                    </span>
+                  </span>
+                  <span
+                    className={`round-score${r?.bullseye ? ' is-bull' : ''}`}
+                  >
+                    {r?.score ?? '–'}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <footer className="after">
+          <button type="button" className="lock" onClick={onExit}>
+            Back to today’s middLE →
+          </button>
+          <div className="practice-actions">
+            <button type="button" className="back" onClick={restart}>
+              Play again
+            </button>
+            <button type="button" className="back" onClick={onMenu}>
+              Other practice games
+            </button>
+          </div>
+        </footer>
+      </main>
+    );
+  }
+
+  if (!prompt) return null;
+  return (
+    <main className="app">
+      {top}
+      <RoundDots current={round} done={round} />
+      <h1 className="prompt" key={round}>
+        {prompt.text}
+      </h1>
+      {round === 0 && (
+        <p className="hint">
+          Practice run. Pin where you think most people will land, not your own
+          answer.
+        </p>
+      )}
+      <div className="field">
+        <HiddenCrowd
+          players={0}
+          note="Practice crowd · revealed when you lock in"
+        />
+        <Track
+          key={round}
+          prompt={prompt}
+          value={draft}
+          onChange={busy ? null : setDraft}
+        />
+      </div>
+      <div className="actions">
+        <button
+          type="button"
+          className="lock"
+          disabled={draft === null || busy}
+          onClick={() => void lock()}
+        >
+          {busy
+            ? 'Locking in…'
+            : draft === null
+              ? 'Tap the line to place your pin'
+              : `Lock in ${formatValue(prompt, draft)}`}
+        </button>
+        {error && <p className="notice">{error}</p>}
+      </div>
+    </main>
+  );
+};
+
+type Mode =
+  | { kind: 'daily' }
+  | { kind: 'menu' }
+  | { kind: 'practice'; game: PracticeGame; best: number | null };
+
 export const App = () => {
   const { load, submitting, notice, guess, share, refresh } = useGame();
   /** The round whose result is being revealed right after locking it in. */
   const [reveal, setReveal] = useState<number | null>(null);
+  const [mode, setMode] = useState<Mode>({ kind: 'daily' });
+
+  if (mode.kind === 'menu') {
+    return (
+      <PracticeMenu
+        onBack={() => setMode({ kind: 'daily' })}
+        onPick={(game, best) => setMode({ kind: 'practice', game, best })}
+      />
+    );
+  }
+  if (mode.kind === 'practice') {
+    return (
+      <PracticeScreen
+        key={mode.game.id}
+        game={mode.game}
+        initialBest={mode.best}
+        onExit={() => setMode({ kind: 'daily' })}
+        onMenu={() => setMode({ kind: 'menu' })}
+      />
+    );
+  }
 
   if (load.kind === 'loading') {
     return (
@@ -902,6 +1278,7 @@ export const App = () => {
         if (ok) setReveal(round);
       }),
     onShare: () => void share(),
+    onPractice: () => setMode({ kind: 'menu' }),
   };
   const playing = state.open && state.total === null && state.loggedIn;
   const loggedOutToday = state.open && !state.loggedIn;

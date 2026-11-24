@@ -884,6 +884,167 @@ body {
   flex-basis: 100%;
 }
 
+/* ---------- practice ---------- */
+
+.link-btn {
+  align-self: center;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 2px 4px;
+  background: none;
+  border: 0;
+  color: var(--grape-text);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-row .stats {
+  flex: 1;
+}
+
+.practice-chip {
+  margin-left: auto;
+  background: var(--sun);
+  color: #2a1f45;
+}
+
+.practice-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.practice-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: var(--stroke);
+  border-radius: 16px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--shadow);
+  transition:
+    transform 100ms ease,
+    box-shadow 100ms ease;
+}
+
+.practice-card:hover,
+.practice-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--shadow);
+  outline: none;
+}
+
+.practice-card:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--shadow);
+}
+
+.practice-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2a1f45;
+  transform: rotate(-4deg);
+}
+
+.practice-list li:nth-child(1) .practice-num {
+  background: var(--mint);
+}
+.practice-list li:nth-child(2) .practice-num {
+  background: var(--sky);
+}
+.practice-list li:nth-child(3) .practice-num {
+  background: var(--accent);
+}
+
+.practice-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.practice-title {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.practice-blurb {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.practice-best {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--display);
+  line-height: 1;
+}
+
+.practice-best strong {
+  font-size: 1.3rem;
+  color: var(--grape-text);
+}
+
+.practice-best small {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.practice-play {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--sun);
+  color: #2a1f45;
+  border: 2px solid var(--ink);
+}
+
+.practice-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.round-row.is-static,
+.round-row.is-static:hover {
+  cursor: default;
+  transform: none;
+  box-shadow: 0 3px 0 var(--shadow);
+}
+
 /* ---------- round reveal ---------- */
 
 .hist.is-animated .hist-bar {

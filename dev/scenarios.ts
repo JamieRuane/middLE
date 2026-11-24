@@ -11,7 +11,7 @@ import {
 import { ROUNDS, promptsForDayNumber } from '../src/shared/prompts';
 
 // A plausible crowd per round: clustered around a centre with a long tail.
-const crowd = (n: number, centre: number, seed: number): number[] => {
+export const crowd = (n: number, centre: number, seed: number): number[] => {
   const c = emptyCounts();
   let s = seed;
   const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
