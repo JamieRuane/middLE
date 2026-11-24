@@ -16,7 +16,8 @@ middLE is a daily game for Reddit. Each day brings five rounds, one prompt each.
 
 ## Scoring
 
-- **Round score:** 100 for dead centre, minus 2 points for every step away from the median (0–100 track).
+- **Round score:** 100 for dead centre, minus 2 points for every step away from the median (0–100 track). The median you're scored against leaves out your own guess.
+- **Warm-up crowd:** every round starts with 30 seeded warm-up guesses spread around a sensible expected answer, so the first players of the day aren't scored against an empty crowd (or themselves). Each real player replaces one warm-up guess, and once 30 people have played the warm-up is gone. Warm-up guesses show as striped bars.
 - **Daily score:** the sum of your five round scores, out of 500.
 - **Bullseye:** landing within 2 steps of a round's median.
 - **Streak:** consecutive days with all five rounds played.

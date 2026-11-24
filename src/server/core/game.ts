@@ -13,15 +13,8 @@ import {
   today,
 } from '../../shared/day';
 import { ROUNDS, promptsForDayNumber } from '../../shared/prompts';
-import {
-  MAX_VALUE,
-  emptyCounts,
-  isBullseye,
-  median,
-  score,
-  toBins,
-  total,
-} from '../../shared/score';
+import { MAX_VALUE, emptyCounts, toBins, total } from '../../shared/score';
+import { outcome, warmupsForDayNumber } from '../../shared/crowd';
 import { shareText } from '../../shared/share';
 
 // Redis layout
@@ -74,17 +67,29 @@ const readGuesses = (day: string, userId: string): Promise<(number | null)[]> =>
 const isComplete = (guesses: (number | null)[]): guesses is number[] =>
   guesses.every((g) => g !== null);
 
-/** Total score and bullseye count for a finished day. */
-const tally = (guesses: number[], counts: number[][]) => {
-  let sum = 0;
-  let bullseyes = 0;
-  guesses.forEach((g, r) => {
-    const med = median(counts[r] ?? []);
-    if (med === null) return;
-    sum += score(g, med);
-    if (isBullseye(g, med)) bullseyes++;
+/**
+ * Per-round scores for a finished day. Each round is scored against the crowd minus your own
+ * guess, topped up by the fading warm-up crowd (see shared/crowd.ts).
+ */
+const scoreDay = (day: string, guesses: number[], counts: number[][]) => {
+  const warmups = warmupsForDayNumber(dayNumber(day));
+  return guesses.map((g, r) => {
+    const o = outcome(
+      counts[r] ?? emptyCounts(),
+      warmups[r] ?? emptyCounts(),
+      g
+    );
+    return { score: o.score ?? 0, bullseye: o.bullseye };
   });
-  return { sum, bullseyes };
+};
+
+/** Total score and bullseye count for a finished day. */
+const tally = (day: string, guesses: number[], counts: number[][]) => {
+  const rounds = scoreDay(day, guesses, counts);
+  return {
+    sum: rounds.reduce((a, r) => a + r.score, 0),
+    bullseyes: rounds.filter((r) => r.bullseye).length,
+  };
 };
 
 export const postUrl = (postId: string): string =>
@@ -124,7 +129,7 @@ const settle = async (userId: string, now: string): Promise<void> => {
     readAllCounts(last),
   ]);
   if (isComplete(guesses)) {
-    const { sum, bullseyes } = tally(guesses, counts);
+    const { sum, bullseyes } = tally(last, guesses, counts);
     await Promise.all([
       redis.hIncrBy(userKey, 'total', sum),
       redis.hIncrBy(userKey, 'scored', 1),
@@ -152,15 +157,20 @@ const readStats = async (
   };
 };
 
-const buildRound = (counts: number[], guess: number | null): RoundResult => {
-  const med = median(counts);
-  const mine = guess !== null && med !== null;
+const buildRound = (
+  counts: number[],
+  warmup: number[],
+  guess: number | null
+): RoundResult => {
+  const o = outcome(counts, warmup, guess);
   return {
     count: total(counts),
-    median: med,
+    median: o.median,
     bins: toBins(counts),
-    score: mine ? score(guess, med) : null,
-    bullseye: mine ? isBullseye(guess, med) : false,
+    score: o.score,
+    bullseye: o.bullseye,
+    warmup: o.warmup,
+    warmupBins: o.warmupBins,
   };
 };
 
@@ -171,7 +181,7 @@ const readYesterday = async (
   const day = addDays(now, -1);
   const guesses = await readGuesses(day, userId);
   if (!isComplete(guesses)) return null;
-  const { sum, bullseyes } = tally(guesses, await readAllCounts(day));
+  const { sum, bullseyes } = tally(day, guesses, await readAllCounts(day));
   return { number: dayNumber(day), total: sum, bullseyes };
 };
 
@@ -181,6 +191,7 @@ export const getState = async (postId: string): Promise<StateResponse> => {
   const day = await dayForPost(postId);
   const open = day === now;
   const number = dayNumber(day);
+  const warmups = warmupsForDayNumber(number);
 
   if (userId) await settle(userId, now);
 
@@ -218,10 +229,11 @@ export const getState = async (postId: string): Promise<StateResponse> => {
     players,
     guesses,
     results: counts.map((c, r) =>
-      c ? buildRound(c, guesses[r] ?? null) : null
+      c ? buildRound(c, warmups[r] ?? emptyCounts(), guesses[r] ?? null) : null
     ),
     total: complete
       ? tally(
+          day,
           guesses,
           counts.map((c) => c ?? emptyCounts())
         ).sum
@@ -297,10 +309,7 @@ export const shareResult = async (
     throw new GameError('Finish all five rounds first.');
 
   const counts = await readAllCounts(day);
-  const rounds = guesses.map((g, r) => {
-    const med = median(counts[r] ?? []) ?? g;
-    return { score: score(g, med), bullseye: isBullseye(g, med) };
-  });
+  const rounds = scoreDay(day, guesses, counts);
   const stats = await readStats(userId, today());
   const text = shareText({
     number: dayNumber(day),

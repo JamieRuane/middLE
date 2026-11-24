@@ -11,23 +11,31 @@ export const emptyCounts = (): number[] =>
 export const total = (counts: readonly number[]): number =>
   counts.reduce((sum, c) => sum + c, 0);
 
-/** Value at a 0-based rank in the sorted list of guesses. */
-const valueAtRank = (counts: readonly number[], rank: number): number => {
-  let seen = 0;
-  for (let v = 0; v < counts.length; v++) {
-    seen += counts[v] ?? 0;
-    if (seen > rank) return v;
-  }
-  return MAX_VALUE;
-};
+const EPSILON = 1e-9;
 
-/** Median of all guesses; may be x.5 when the count is even. Null when nobody played. */
+/**
+ * Weighted median of a histogram. Counts may be fractional (warm-up guesses fade out gradually).
+ * When the cumulative weight lands exactly on half, it averages with the next value, so whole-number
+ * counts behave like the usual median (x.5 for an even number of guesses). Null when the crowd is empty.
+ */
 export const median = (counts: readonly number[]): number | null => {
   const n = total(counts);
-  if (n === 0) return null;
-  const lo = valueAtRank(counts, Math.floor((n - 1) / 2));
-  const hi = valueAtRank(counts, Math.floor(n / 2));
-  return (lo + hi) / 2;
+  if (n <= EPSILON) return null;
+  const half = n / 2;
+  let seen = 0;
+  for (let v = 0; v < counts.length; v++) {
+    const c = counts[v] ?? 0;
+    if (c <= EPSILON) continue;
+    seen += c;
+    if (seen > half + EPSILON) return v;
+    if (Math.abs(seen - half) <= EPSILON) {
+      for (let w = v + 1; w < counts.length; w++) {
+        if ((counts[w] ?? 0) > EPSILON) return (v + w) / 2;
+      }
+      return v;
+    }
+  }
+  return MAX_VALUE;
 };
 
 /** 100 for dead centre, minus 2 points per unit away, floored at 0. */

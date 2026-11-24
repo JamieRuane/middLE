@@ -9,8 +9,18 @@ import {
   toBins,
   clampGuess,
 } from '../src/shared/score.ts';
-import { addDays, dayNumber, msUntilNextDay, today } from '../src/shared/day.ts';
-import { PROMPTS, ROUNDS, formatValue, promptsForDayNumber } from '../src/shared/prompts.ts';
+import {
+  addDays,
+  dayNumber,
+  msUntilNextDay,
+  today,
+} from '../src/shared/day.ts';
+import {
+  PROMPTS,
+  ROUNDS,
+  formatValue,
+  promptsForDayNumber,
+} from '../src/shared/prompts.ts';
 
 const countsOf = (...guesses: number[]) => {
   const c = emptyCounts();
@@ -90,7 +100,10 @@ test('each day gets ROUNDS prompts, no repeats within a cycle, same for everyone
     }
   }
   assert.deepEqual(promptsForDayNumber(7), promptsForDayNumber(7));
-  assert.notDeepEqual(promptsForDayNumber(1), promptsForDayNumber(1 + perCycle));
+  assert.notDeepEqual(
+    promptsForDayNumber(1),
+    promptsForDayNumber(1 + perCycle)
+  );
   assert.equal(promptsForDayNumber(0).length, ROUNDS);
 });
 
@@ -105,7 +118,8 @@ test('value formatting', () => {
 });
 
 test('share text is spoiler-free: score, emoji per round, optional streak', async () => {
-  const { shareText, shareGrid, toneFor } = await import('../src/shared/share.ts');
+  const { shareText, shareGrid, toneFor } =
+    await import('../src/shared/share.ts');
   assert.equal(toneFor(98, true), 'bull');
   assert.equal(toneFor(85, false), 'great');
   assert.equal(toneFor(65, false), 'good');
@@ -120,11 +134,82 @@ test('share text is spoiler-free: score, emoji per round, optional streak', asyn
   ];
   assert.equal(shareGrid(rounds), '🎯 🟩 🟥 🟧 🟨');
   assert.equal(
-    shareText({ number: 3, total: 302, maxTotal: 500, rounds, streak: 4, final: false }),
+    shareText({
+      number: 3,
+      total: 302,
+      maxTotal: 500,
+      rounds,
+      streak: 4,
+      final: false,
+    }),
     '**middLE #3**: 302 / 500 (so far)\n\n🎯 🟩 🟥 🟧 🟨\n\n🔥 4-day streak'
   );
   assert.equal(
-    shareText({ number: 3, total: 302, maxTotal: 500, rounds, streak: 1, final: true }),
+    shareText({
+      number: 3,
+      total: 302,
+      maxTotal: 500,
+      rounds,
+      streak: 1,
+      final: true,
+    }),
     '**middLE #3**: 302 / 500\n\n🎯 🟩 🟥 🟧 🟨'
   );
+});
+
+test('weighted median handles fractional warm-up counts', () => {
+  const c = emptyCounts();
+  c[10] = 0.5;
+  c[20] = 0.5;
+  assert.equal(median(c), 15);
+  c[30] = 2;
+  assert.equal(median(c), 30);
+});
+
+test('warm-up crowd: 30 seeded guesses near the expected answer, same every time', async () => {
+  const { WARMUP_SIZE, warmupCounts, warmupsForDayNumber, expectedPosition } =
+    await import('../src/shared/crowd.ts');
+  for (const p of PROMPTS) {
+    const w = warmupCounts(p, 7);
+    assert.equal(
+      w.reduce((a, b) => a + b, 0),
+      WARMUP_SIZE
+    );
+    assert.deepEqual(warmupCounts(p, 7), w, 'deterministic');
+    const m = median(w);
+    assert.ok(
+      m !== null && Math.abs(m - expectedPosition(p)) <= p.spread,
+      p.text
+    );
+  }
+  const day = warmupsForDayNumber(4);
+  assert.equal(day.length, ROUNDS);
+});
+
+test('outcome: your own guess is excluded and the warm-up fades as players arrive', async () => {
+  const { outcome, warmupWeight, WARMUP_SIZE } =
+    await import('../src/shared/crowd.ts');
+  const warm = emptyCounts();
+  warm[40] = WARMUP_SIZE; // warm-up crowd all at 40
+
+  // First player at 90: scored against the warm-up (40), not against themselves.
+  const first = outcome(countsOf(90), warm, 90);
+  assert.equal(first.median, 40);
+  assert.equal(first.score, 0);
+  assert.equal(first.warmup, 30);
+
+  // Same guess, but someone else also said 90: still the warm-up dominates.
+  assert.equal(outcome(countsOf(90, 90), warm, 90).median, 40);
+
+  // Fading: 15 other players leaves 15 warm-up guesses; 30 removes it entirely.
+  assert.equal(warmupWeight(15), 0.5);
+  assert.equal(warmupWeight(30), 0);
+  assert.equal(warmupWeight(45), 0);
+  const thirtyOthers = countsOf(...new Array(30).fill(70), 10);
+  const late = outcome(thirtyOthers, warm, 10);
+  assert.equal(late.warmup, 0);
+  assert.equal(late.median, 70);
+
+  // Spectators (no guess) see everyone plus the warm-up.
+  assert.equal(outcome(countsOf(90), warm, null).score, null);
 });

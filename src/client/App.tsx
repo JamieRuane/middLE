@@ -11,6 +11,7 @@ import { ROUNDS, formatValue } from '../shared/prompts';
 import type { Prompt } from '../shared/prompts';
 import { BIN_COUNT, MAX_VALUE } from '../shared/score';
 import { shareGrid, toneFor } from '../shared/share';
+import { WARMUP_SIZE } from '../shared/crowd';
 import type { Tone } from '../shared/share';
 
 const MAX_TOTAL = ROUNDS * 100;
@@ -297,23 +298,39 @@ const Histogram = ({
   /** Staged entrance: bars grow, then the median drops in, then the gap to your pin stretches. */
   animate?: boolean;
 }) => {
-  const max = Math.max(1, ...result.bins);
+  const stacked = result.bins.map((c, i) => c + (result.warmupBins[i] ?? 0));
+  const max = Math.max(1, ...stacked);
   const width = MAX_VALUE / BIN_COUNT;
   const mineBin =
     guess === null ? -1 : Math.min(BIN_COUNT - 1, Math.floor(guess / width));
   const med = result.median;
   return (
     <div className={`hist${animate ? ' is-animated' : ''}`} aria-hidden="true">
-      {result.bins.map((count, i) => (
-        <div
-          key={i}
-          className={`hist-bar${i === mineBin ? ' is-mine' : ''}`}
-          style={{
-            height: `${count === 0 ? 3 : Math.max(8, (count / max) * 100)}%`,
-            animationDelay: `${i * 28}ms`,
-          }}
-        />
-      ))}
+      {result.bins.map((real, i) => {
+        const warm = result.warmupBins[i] ?? 0;
+        const all = real + warm;
+        return (
+          // Each bar stacks real guesses (solid) under warm-up guesses (striped).
+          <div
+            key={i}
+            className={`hist-bar is-stack${i === mineBin ? ' is-mine' : ''}`}
+            style={{
+              height: `${all < 0.05 ? 3 : Math.max(8, (all / max) * 100)}%`,
+              animationDelay: `${i * 28}ms`,
+            }}
+          >
+            {warm >= 0.05 && (
+              <span className="hist-warm" style={{ flexGrow: warm }} />
+            )}
+            {(real > 0 || all < 0.05) && (
+              <span
+                className="hist-real"
+                style={{ flexGrow: real > 0 ? real : 1 }}
+              />
+            )}
+          </div>
+        );
+      })}
       {med !== null && (
         <div className="median-line" style={{ left: `${med}%` }}>
           <span>median {formatValue(prompt, med)}</span>
@@ -491,6 +508,7 @@ const RevealScreen = ({
             median{' '}
             {result.median === null ? '–' : formatValue(prompt, result.median)}{' '}
             · you {formatValue(prompt, guess)}
+            {result.warmup > 0 && ` · +${result.warmup} warm-up`}
           </span>
           <span className={`running${landed ? ' is-shown' : ''}`}>
             Total <strong>{runningTotal}</strong> / {MAX_TOTAL}
@@ -663,7 +681,11 @@ const RoundDetail = ({
           </>
         )}
       </p>
-      <p className="muted small">{plural(result.count, 'guess', 'guesses')}</p>
+      <p className="muted small">
+        {plural(result.count, 'guess', 'guesses')}
+        {result.warmup > 0 &&
+          ` + ${result.warmup} warm-up (striped) until ${WARMUP_SIZE} people play`}
+      </p>
     </main>
   );
 };

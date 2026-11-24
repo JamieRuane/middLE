@@ -283,6 +283,35 @@ body {
   box-shadow: inset 0 0 0 2px var(--ink);
 }
 
+/* Result bars stack real guesses (solid) under warm-up guesses (striped). */
+.hist-bar.is-stack {
+  display: flex;
+  flex-direction: column;
+  background: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.hist-real {
+  flex-basis: 0;
+  background: var(--bar);
+}
+
+.hist-warm {
+  flex-basis: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bar) 0 3px,
+    transparent 3px 6px
+  );
+  opacity: 0.85;
+}
+
+.hist-bar.is-stack.is-mine .hist-real {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
 .hist.is-hidden .hist-bar {
   background: repeating-linear-gradient(
     135deg,

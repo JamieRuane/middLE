@@ -14,6 +14,10 @@ export type Prompt = {
   step?: number;
   /** Colour stops painted on the track, for colour-perception prompts. */
   gradient?: string[];
+  /** Where we expect the crowd to land, in the prompt's own units (e.g. 18 * 60 for 6pm). */
+  expect: number;
+  /** How spread out we expect guesses to be, in track units (0..100). */
+  spread: number;
 };
 
 export const PROMPTS: readonly Prompt[] = [
@@ -24,6 +28,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: 'plain',
+    expect: 45,
+    spread: 18,
   },
   {
     text: 'Where does blue stop and green begin?',
@@ -32,6 +38,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 50,
+    spread: 10,
     gradient: ['#1f5fd1', '#16a39a', '#2fae3c'],
   },
   {
@@ -41,6 +49,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 20,
+    spread: 10,
   },
   {
     text: 'How many minutes late is "fashionably late"?',
@@ -49,6 +59,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 60,
     unit: 'min',
+    expect: 15,
+    spread: 10,
   },
   {
     text: 'When does "evening" start?',
@@ -57,6 +69,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 15 * 60,
     max: 21 * 60,
     unit: 'time',
+    expect: 1080,
+    spread: 10,
     step: 5,
   },
   {
@@ -66,6 +80,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 55,
+    spread: 12,
     gradient: ['#7fb83a', '#f2d43a', '#e0b02a', '#7a5320'],
   },
   {
@@ -75,6 +91,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 30,
     max: 100,
     unit: 'yrs',
+    expect: 70,
+    spread: 12,
   },
   {
     text: 'How many browser tabs is too many?',
@@ -83,6 +101,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 1,
     max: 100,
     unit: 'plain',
+    expect: 30,
+    spread: 15,
   },
   {
     text: 'Ideal indoor temperature?',
@@ -91,6 +111,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 15,
     max: 30,
     unit: '°C',
+    expect: 21,
+    spread: 10,
     step: 0.5,
     gradient: ['#3b7dd8', '#e9e4d8', '#e0582b'],
   },
@@ -101,6 +123,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 50,
+    spread: 10,
     gradient: ['#f59a1b', '#d9261c'],
   },
   {
@@ -110,6 +134,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 120,
     unit: 'min',
+    expect: 25,
+    spread: 10,
   },
   {
     text: 'How full should a mug of tea be?',
@@ -118,6 +144,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 85,
+    spread: 8,
   },
   {
     text: 'How many days do leftovers last in the fridge?',
@@ -126,6 +154,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 14,
     unit: 'days',
+    expect: 4,
+    spread: 10,
     step: 0.5,
   },
   {
@@ -135,6 +165,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: 'plain',
+    expect: 45,
+    spread: 12,
     gradient: ['#f3e3b0', '#f08a24', '#b3120f'],
   },
   {
@@ -144,6 +176,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 15,
+    spread: 10,
   },
   {
     text: 'Where does grey become white?',
@@ -152,6 +186,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 70,
+    spread: 12,
     gradient: ['#6b6b6b', '#ffffff'],
   },
   {
@@ -161,6 +197,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 4,
     max: 12,
     unit: 'h',
+    expect: 8,
+    spread: 8,
     step: 0.25,
   },
   {
@@ -170,6 +208,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: -10,
     max: 25,
     unit: '°C',
+    expect: 14,
+    spread: 12,
     gradient: ['#2b5fb8', '#bcd6ec', '#f1c27a'],
   },
   {
@@ -179,6 +219,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 48,
     unit: 'h',
+    expect: 6,
+    spread: 12,
     step: 0.5,
   },
   {
@@ -188,6 +230,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 50,
+    spread: 15,
     gradient: ['#d1233a', '#7b2fbf', '#2a3fd1'],
   },
   {
@@ -197,6 +241,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: 'plain',
+    expect: 30,
+    spread: 15,
   },
   {
     text: 'What’s the best age to be?',
@@ -205,6 +251,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: 'yrs',
+    expect: 30,
+    spread: 12,
   },
   {
     text: 'When is it too late to say "good morning"?',
@@ -213,6 +261,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 9 * 60,
     max: 15 * 60,
     unit: 'time',
+    expect: 720,
+    spread: 10,
     step: 5,
   },
   {
@@ -222,6 +272,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 1,
     max: 20,
     unit: 'h',
+    expect: 8,
+    spread: 12,
     step: 0.5,
   },
   {
@@ -231,6 +283,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 50,
+    spread: 12,
     gradient: ['#21a14a', '#11998e', '#1a6fc4'],
   },
   {
@@ -240,6 +294,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: 'plain',
+    expect: 55,
+    spread: 22,
   },
   {
     text: 'How early is too early to arrive at a party?',
@@ -248,6 +304,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 60,
     unit: 'min',
+    expect: 10,
+    spread: 12,
   },
   {
     text: 'How loud is your music in the car?',
@@ -256,6 +314,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 45,
+    spread: 12,
   },
   {
     text: 'How old is an "old" dog?',
@@ -264,6 +324,8 @@ export const PROMPTS: readonly Prompt[] = [
     min: 1,
     max: 20,
     unit: 'yrs',
+    expect: 11,
+    spread: 10,
     step: 0.5,
   },
   {
@@ -273,10 +335,12 @@ export const PROMPTS: readonly Prompt[] = [
     min: 0,
     max: 100,
     unit: '%',
+    expect: 55,
+    spread: 12,
     gradient: ['#f5a3c0', '#d11a2a'],
   },
   ...[
-    p('How many close friends is "a lot"?', '1', '30', 1, 30, 'plain'),
+    p('How many close friends is "a lot"?', '1', '30', 1, 30, 'plain', 6, 10),
     p(
       'How many hours of screen time a day is too much?',
       '0h',
@@ -284,21 +348,43 @@ export const PROMPTS: readonly Prompt[] = [
       0,
       16,
       'h',
+      7,
+      12,
       { step: 0.5 }
     ),
-    p('Where does yellow become orange?', 'yellow', 'orange', 0, 100, '%', {
-      gradient: ['#f7e03c', '#f5961b'],
-    }),
-    p('How hot should a bath be?', '30°C', '45°C', 30, 45, '°C', {
+    p(
+      'Where does yellow become orange?',
+      'yellow',
+      'orange',
+      0,
+      100,
+      '%',
+      50,
+      10,
+      {
+        gradient: ['#f7e03c', '#f5961b'],
+      }
+    ),
+    p('How hot should a bath be?', '30°C', '45°C', 30, 45, '°C', 39, 10, {
       step: 0.5,
       gradient: ['#8fc1e8', '#f2e6d0', '#e0582b'],
     }),
-    p('How many coffees a day is too many?', '0', '10', 0, 10, 'plain', {
+    p('How many coffees a day is too many?', '0', '10', 0, 10, 'plain', 4, 10, {
       step: 0.5,
     }),
-    p('How long should a good film be?', '1 hour', '4 hours', 60, 240, 'min', {
-      step: 5,
-    }),
+    p(
+      'How long should a good film be?',
+      '1 hour',
+      '4 hours',
+      60,
+      240,
+      'min',
+      120,
+      8,
+      {
+        step: 5,
+      }
+    ),
     p(
       'What time is "late" for dinner?',
       '5pm',
@@ -306,11 +392,22 @@ export const PROMPTS: readonly Prompt[] = [
       17 * 60,
       23 * 60,
       'time',
+      1230,
+      10,
       { step: 5 }
     ),
-    p('How long is a reasonable shower?', '0', '30 min', 0, 30, 'min'),
-    p('At what age are you a proper grown-up?', '12', '40', 12, 40, 'yrs'),
-    p('Where does navy become black?', 'navy', 'black', 0, 100, '%', {
+    p('How long is a reasonable shower?', '0', '30 min', 0, 30, 'min', 10, 10),
+    p(
+      'At what age are you a proper grown-up?',
+      '12',
+      '40',
+      12,
+      40,
+      'yrs',
+      26,
+      12
+    ),
+    p('Where does navy become black?', 'navy', 'black', 0, 100, '%', 70, 10, {
       gradient: ['#1f3577', '#050505'],
     }),
     p(
@@ -319,12 +416,33 @@ export const PROMPTS: readonly Prompt[] = [
       'packed',
       0,
       100,
-      '%'
+      '%',
+      70,
+      12
     ),
-    p('How many unread emails is chaos?', '0', '1,000', 0, 1000, 'plain', {
-      step: 10,
-    }),
-    p('How bright is your phone screen right now?', 'dim', 'max', 0, 100, '%'),
+    p(
+      'How many unread emails is chaos?',
+      '0',
+      '1,000',
+      0,
+      1000,
+      'plain',
+      150,
+      12,
+      {
+        step: 10,
+      }
+    ),
+    p(
+      'How bright is your phone screen right now?',
+      'dim',
+      'max',
+      0,
+      100,
+      '%',
+      55,
+      15
+    ),
     p(
       'How many days can you skip washing your hair?',
       '0',
@@ -332,52 +450,145 @@ export const PROMPTS: readonly Prompt[] = [
       0,
       14,
       'days',
+      3,
+      10,
       {
         step: 0.5,
       }
     ),
-    p('When does "night" start?', '6pm', 'midnight', 18 * 60, 24 * 60, 'time', {
-      step: 5,
-    }),
-    p('How long would you wait for a table?', '0', '90 min', 0, 90, 'min'),
-    p('How many people make it a party?', '2', '50', 2, 50, 'plain'),
-    p('How warm is jumper weather?', '0°C', '25°C', 0, 25, '°C', {
+    p(
+      'When does "night" start?',
+      '6pm',
+      'midnight',
+      18 * 60,
+      24 * 60,
+      'time',
+      1260,
+      12,
+      {
+        step: 5,
+      }
+    ),
+    p(
+      'How long would you wait for a table?',
+      '0',
+      '90 min',
+      0,
+      90,
+      'min',
+      30,
+      12
+    ),
+    p('How many people make it a party?', '2', '50', 2, 50, 'plain', 12, 10),
+    p('How warm is jumper weather?', '0°C', '25°C', 0, 25, '°C', 12, 12, {
       gradient: ['#3b7dd8', '#e9e4d8', '#f1a54a'],
     }),
-    p('Where does brown become orange?', 'brown', 'orange', 0, 100, '%', {
-      gradient: ['#5e3519', '#e8791c'],
-    }),
+    p(
+      'Where does brown become orange?',
+      'brown',
+      'orange',
+      0,
+      100,
+      '%',
+      55,
+      12,
+      {
+        gradient: ['#5e3519', '#e8791c'],
+      }
+    ),
     p(
       'How long could you last without your phone?',
       '0h',
       '2 days',
       0,
       48,
-      'h'
+      'h',
+      8,
+      15
     ),
-    p('How many slices of pizza is a fair share?', '1', '8', 1, 8, 'plain', {
-      step: 0.5,
-    }),
-    p('How old should you be to get a phone?', '5', '18', 5, 18, 'yrs'),
-    p('How much of a plate should be vegetables?', 'none', 'all', 0, 100, '%'),
-    p('How long is too long for a voice note?', '0', '5 min', 0, 5, 'min', {
-      step: 0.25,
-    }),
-    p('How many alarms does it take to get up?', '1', '10', 1, 10, 'plain'),
-    p('Where does lavender stop being blue?', 'blue', 'pink', 0, 100, '%', {
-      gradient: ['#8fa6e8', '#b48be0', '#d98bcd'],
-    }),
-    p('How many years is a "long" relationship?', '0', '20', 0, 20, 'yrs', {
-      step: 0.5,
-    }),
-    p('What’s a good tip?', '0%', '40%', 0, 40, '%'),
+    p(
+      'How many slices of pizza is a fair share?',
+      '1',
+      '8',
+      1,
+      8,
+      'plain',
+      3,
+      10,
+      {
+        step: 0.5,
+      }
+    ),
+    p('How old should you be to get a phone?', '5', '18', 5, 18, 'yrs', 12, 12),
+    p(
+      'How much of a plate should be vegetables?',
+      'none',
+      'all',
+      0,
+      100,
+      '%',
+      45,
+      10
+    ),
+    p(
+      'How long is too long for a voice note?',
+      '0',
+      '5 min',
+      0,
+      5,
+      'min',
+      1.5,
+      10,
+      {
+        step: 0.25,
+      }
+    ),
+    p(
+      'How many alarms does it take to get up?',
+      '1',
+      '10',
+      1,
+      10,
+      'plain',
+      2,
+      12
+    ),
+    p(
+      'Where does lavender stop being blue?',
+      'blue',
+      'pink',
+      0,
+      100,
+      '%',
+      55,
+      12,
+      {
+        gradient: ['#8fa6e8', '#b48be0', '#d98bcd'],
+      }
+    ),
+    p(
+      'How many years is a "long" relationship?',
+      '0',
+      '20',
+      0,
+      20,
+      'yrs',
+      5,
+      12,
+      {
+        step: 0.5,
+      }
+    ),
+    p('What’s a good tip?', '0%', '40%', 0, 40, '%', 18, 10),
     p(
       'How much of a book can you skim and still say you read it?',
       'none',
       'all',
       0,
       100,
-      '%'
+      '%',
+      30,
+      12
     ),
     p(
       'How full is "full" for a phone’s storage?',
@@ -385,7 +596,9 @@ export const PROMPTS: readonly Prompt[] = [
       '100%',
       0,
       100,
-      '%'
+      '%',
+      90,
+      6
     ),
   ],
 ];
@@ -397,9 +610,11 @@ function p(
   min: number,
   max: number,
   unit: Unit,
+  expect: number,
+  spread: number,
   extra: Pick<Prompt, 'step' | 'gradient'> = {}
 ): Prompt {
-  return { text, left, right, min, max, unit, ...extra };
+  return { text, left, right, min, max, unit, expect, spread, ...extra };
 }
 
 /** Rounds played each day. */

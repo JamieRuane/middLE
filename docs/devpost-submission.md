@@ -30,6 +30,7 @@ Most daily games ask "do you know the answer?" We wanted one that asks "do you k
 - Each day's 5 prompts come from a seeded shuffle of a 60-prompt pool, so every player gets the same set and nothing repeats within a cycle.
 - Redis stores each round's guesses as a 101-bucket histogram, so medians and scores stay fast at any player count. One guess per user per round is enforced with `hSetNX`.
 - Stats settle lazily on a player's next visit, so there's no nightly batch job over every player.
+- A seeded 30-guess warm-up crowd per round, fading out one-for-one as real players arrive, keeps quiet days fair. Your own guess is always excluded from the median you're scored against, so the first player can't score a free 500.
 - The custom slider supports pointer and keyboard input, and the pin starts unplaced so guesses don't anchor at 50.
 
 ## Challenges we ran into

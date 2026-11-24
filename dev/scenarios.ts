@@ -1,4 +1,5 @@
 import type { StateResponse } from '../src/shared/api';
+import { outcome, warmupsForDayNumber } from '../src/shared/crowd';
 import {
   emptyCounts,
   isBullseye,
@@ -42,16 +43,19 @@ export const buildPreviewState = (
     return k;
   });
   const complete = guesses.every((g) => g !== null);
+  const warmups = warmupsForDayNumber(number);
   const results = counts.map((k, r) => {
     const g = guesses[r] ?? null;
     if (g === null && open) return null;
-    const med = median(k);
+    const o = outcome(k, warmups[r] ?? emptyCounts(), g);
     return {
       count: total(k),
-      median: med,
+      median: o.median,
       bins: toBins(k),
-      score: g !== null && med !== null ? score(g, med) : null,
-      bullseye: g !== null && med !== null ? isBullseye(g, med) : false,
+      warmup: o.warmup,
+      warmupBins: o.warmupBins,
+      score: o.score,
+      bullseye: o.bullseye,
     };
   });
   return {

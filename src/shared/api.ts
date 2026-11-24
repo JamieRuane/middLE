@@ -1,11 +1,16 @@
 import type { Prompt } from './prompts';
 
 export type RoundResult = {
-  /** Number of guesses for this round (final once the day is closed). */
+  /** Number of real guesses for this round, including yours (final once the day is closed). */
   count: number;
+  /** The median you're scored against: everyone else plus any remaining warm-up guesses. */
   median: number | null;
-  /** Guess counts grouped into display bars. */
+  /** Real guess counts grouped into display bars. */
   bins: number[];
+  /** Warm-up guesses still counted (fades from 30 to 0 as real players arrive). */
+  warmup: number;
+  /** Warm-up guesses per display bar (may be fractional). */
+  warmupBins: number[];
   /** Present when the current player guessed and there is a median. */
   score: number | null;
   bullseye: boolean;
