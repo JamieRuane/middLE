@@ -77,3 +77,23 @@ export const clampGuess = (value: unknown): number | null => {
   const v = Math.round(value);
   return v >= 0 && v <= MAX_VALUE ? v : null;
 };
+
+/** Highest possible daily total (5 rounds × 100). */
+export const MAX_DAILY_TOTAL = 500;
+
+/**
+ * "Better than X% of players": the share (0..100) of OTHER finishers whose daily total is
+ * strictly lower than yours. `totals` is a histogram of daily totals (index = total) that
+ * includes your own. Null when nobody else has finished yet.
+ */
+export const beatPercent = (
+  totals: readonly number[],
+  mine: number
+): number | null => {
+  const everyone = totals.reduce((sum, c) => sum + c, 0);
+  const others = everyone - 1;
+  if (others <= 0) return null;
+  let below = 0;
+  for (let t = 0; t < mine && t < totals.length; t++) below += totals[t] ?? 0;
+  return Math.round((below / others) * 100);
+};

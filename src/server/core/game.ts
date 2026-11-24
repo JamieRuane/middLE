@@ -13,7 +13,14 @@ import {
   today,
 } from '../../shared/day';
 import { ROUNDS, promptsForDayNumber } from '../../shared/prompts';
-import { MAX_VALUE, emptyCounts, toBins, total } from '../../shared/score';
+import {
+  MAX_DAILY_TOTAL,
+  MAX_VALUE,
+  beatPercent,
+  emptyCounts,
+  toBins,
+  total,
+} from '../../shared/score';
 import { outcome, warmupsForDayNumber } from '../../shared/crowd';
 import { shareText } from '../../shared/share';
 
@@ -22,6 +29,7 @@ import { shareText } from '../../shared/share';
 //   d:{day}:r{round}:guesses  hash  userId -> guess (one per user per round, via hSetNX)
 //   d:{day}:post              str   postId of that day's post
 //   d:{day}:shared            hash  userId -> commentId of their shared result
+//   d:{day}:totals            str   cached JSON histogram of finishers' daily totals (60s)
 //   post:{postId}             str   day a post belongs to (fallback when postData is missing)
 //   u:{userId}                hash  played, streak, best, last, settled, total, scored, bull
 const keys = {
@@ -29,6 +37,7 @@ const keys = {
   guesses: (day: string, round: number) => `d:${day}:r${round}:guesses`,
   dayPost: (day: string) => `d:${day}:post`,
   shared: (day: string) => `d:${day}:shared`,
+  totals: (day: string) => `d:${day}:totals`,
   postDay: (postId: string) => `post:${postId}`,
   user: (userId: string) => `u:${userId}`,
 };
@@ -71,8 +80,12 @@ const isComplete = (guesses: (number | null)[]): guesses is number[] =>
  * Per-round scores for a finished day. Each round is scored against the crowd minus your own
  * guess, topped up by the fading warm-up crowd (see shared/crowd.ts).
  */
-const scoreDay = (day: string, guesses: number[], counts: number[][]) => {
-  const warmups = warmupsForDayNumber(dayNumber(day));
+const scoreDay = (
+  day: string,
+  guesses: number[],
+  counts: number[][],
+  warmups: number[][] = warmupsForDayNumber(dayNumber(day))
+) => {
   return guesses.map((g, r) => {
     const o = outcome(
       counts[r] ?? emptyCounts(),
@@ -81,6 +94,55 @@ const scoreDay = (day: string, guesses: number[], counts: number[][]) => {
     );
     return { score: o.score ?? 0, bullseye: o.bullseye };
   });
+};
+
+const TOTALS_CACHE_MS = 60_000;
+
+/**
+ * Histogram (index 0..500) of every finisher's daily total, each scored against the
+ * current crowd. Cached for a minute; cleared whenever someone finishes.
+ */
+const dayTotals = async (day: string): Promise<number[]> => {
+  const cached = await redis.get(keys.totals(day));
+  if (cached) {
+    try {
+      const parsed: unknown = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
+        return parsed;
+      }
+    } catch {
+      // fall through and rebuild
+    }
+  }
+  const [maps, counts] = await Promise.all([
+    Promise.all(ROUND_INDEXES.map((r) => redis.hGetAll(keys.guesses(day, r)))),
+    readAllCounts(day),
+  ]);
+  const warmups = warmupsForDayNumber(dayNumber(day));
+  const hist = new Array<number>(MAX_DAILY_TOTAL + 1).fill(0);
+  for (const userId of Object.keys(maps[LAST_ROUND] ?? {})) {
+    const guesses = maps.map((m) => {
+      const v = m[userId];
+      return v === undefined ? null : int(v);
+    });
+    if (!isComplete(guesses)) continue;
+    const sum = scoreDay(day, guesses, counts, warmups).reduce(
+      (a, r) => a + r.score,
+      0
+    );
+    hist[sum] = (hist[sum] ?? 0) + 1;
+  }
+  await redis.set(keys.totals(day), JSON.stringify(hist), {
+    expiration: new Date(Date.now() + TOTALS_CACHE_MS),
+  });
+  return hist;
+};
+
+/** Your "better than X%" for a finished day, making sure you're counted even if the cache is a moment old. */
+const beatFor = async (day: string, mine: number): Promise<number | null> => {
+  const hist = [...(await dayTotals(day))];
+  if ((hist[mine] ?? 0) === 0) hist[mine] = 1;
+  return beatPercent(hist, mine);
 };
 
 /** Total score and bullseye count for a finished day. */
@@ -234,7 +296,10 @@ export const getState = async (postId: string): Promise<StateResponse> => {
       )
     : null;
   // Today's finished game counts toward stats straight away.
-  const stats = await readStats(userId, now, open ? dayTally : null);
+  const [stats, beat] = await Promise.all([
+    readStats(userId, now, open ? dayTally : null),
+    dayTally ? beatFor(day, dayTally.sum) : Promise.resolve(null),
+  ]);
 
   return {
     type: 'state',
@@ -250,6 +315,7 @@ export const getState = async (postId: string): Promise<StateResponse> => {
       c ? buildRound(c, warmups[r] ?? emptyCounts(), guesses[r] ?? null) : null
     ),
     total: dayTally?.sum ?? null,
+    beat,
     stats,
     shared: Boolean(sharedId),
     yesterday,
@@ -284,6 +350,7 @@ export const submitGuess = async (
   await redis.hIncrBy(keys.counts(day, round), String(value), 1);
 
   if (round === LAST_ROUND) {
+    await redis.del(keys.totals(day));
     const userKey = keys.user(userId);
     const u = await redis.hGetAll(userKey);
     const streak = u.last === addDays(now, -1) ? int(u.streak) + 1 : 1;
@@ -322,13 +389,18 @@ export const shareResult = async (
 
   const counts = await readAllCounts(day);
   const rounds = scoreDay(day, guesses, counts);
-  const stats = await readStats(userId, today());
+  const sum = rounds.reduce((a, r) => a + r.score, 0);
+  const [stats, beat] = await Promise.all([
+    readStats(userId, today()),
+    beatFor(day, sum),
+  ]);
   const text = shareText({
     number: dayNumber(day),
-    total: rounds.reduce((sum, r) => sum + r.score, 0),
+    total: sum,
     maxTotal: ROUNDS * 100,
     rounds,
     streak: stats.streak,
+    beat,
     final: false,
   });
 

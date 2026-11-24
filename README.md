@@ -22,6 +22,7 @@ middLE is a daily game for Reddit. Each day brings five rounds, one prompt each.
 - **Bullseye:** landing within 2 steps of a round's median.
 - **Streak:** consecutive days with all five rounds played.
 - **Average:** your mean daily score across finished days.
+- **Better than X%:** once you finish, you see what share of today's other finishers you beat. It's recalculated as the crowd moves (cached for a minute), and it's included when you share your result.
 
 Prompts come from a shuffled pool, so no prompt repeats until the whole pool has been used.
 
