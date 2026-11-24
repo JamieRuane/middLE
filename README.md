@@ -2,25 +2,27 @@
 
 **Being right doesn't matter. Being average does.**
 
-middLE is a daily game for Reddit. Each day brings one prompt and you get one guess. Put your pin where you think *the crowd* will put theirs. Your score is how close you land to the crowd's median.
+middLE is a daily game for Reddit. Each day brings five rounds, one prompt each. For every prompt, put your pin where you think *the crowd* will put theirs. You score points for landing close to the crowd's median.
 
 ## How to play
 
 1. Open today's middLE post.
-2. Read the prompt. For example: *"How warm is this colour, 0–100?"* or *"Where will the average player put the pin?"*
-3. Drag your pin and lock it in. You get one guess per day.
-4. See everyone's guesses so far, with yours highlighted.
-5. Come back tomorrow for the final median, your score and your percentile.
-6. Argue about it in the comments.
+2. Read the prompt. For example: *"Where does blue stop and green begin?"* or *"How many minutes late is fashionably late?"*
+3. Tap or drag to place your pin, then lock it in. One guess per round.
+4. Play all five rounds. The crowd stays hidden until you finish.
+5. After round five, you see your total and every round's crowd, with your pin and the median marked.
+6. Medians keep moving while people play. Results go final at midnight UTC, when the next middLE posts.
+7. Argue about it in the comments.
 
 ## Scoring
 
-- **Score:** 100 for dead centre, minus 2 points for every step away from the final median (0–100 track).
-- **Bullseye:** landing within 2 points of the median.
-- **Streak:** consecutive days played.
-- **Average:** your mean score across finished days.
+- **Round score:** 100 for dead centre, minus 2 points for every step away from the median (0–100 track).
+- **Daily score:** the sum of your five round scores, out of 500.
+- **Bullseye:** landing within 2 steps of a round's median.
+- **Streak:** consecutive days with all five rounds played.
+- **Average:** your mean daily score across finished days.
 
-Before you lock in, the crowd stays hidden; you only see how many pins are down. A new middLE is posted automatically just after midnight UTC.
+Prompts come from a shuffled pool, so no prompt repeats until the whole pool has been used.
 
 ## Coming soon
 
@@ -40,7 +42,7 @@ Built on [Devvit Web](https://developers.reddit.com/docs) with React 19, Tailwin
 | `npm run build` | Build the client and server |
 | `npm run test:types` | Type-check |
 | `npm run test:unit` | Unit tests for scoring, days and prompts |
-| `npm run preview:ui` | Local UI preview with mocked data at http://localhost:5199 (add `?s=` with fresh, new, played, closed, few, out or colour) |
+| `npm run preview:ui` | Local UI preview with mocked data at http://localhost:5199 (add `?s=` with fresh, new, mid, played, closed, few or out) |
 | `npm run deploy` | Type-check, lint and upload. **Don't** run `launch`/publish during the hackathon |
 
 Layout:

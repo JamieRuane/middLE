@@ -1,31 +1,25 @@
 import { context, redis } from '@devvit/web/server';
-import type { Results, StateResponse, Stats, Yesterday } from '../../shared/api';
+import type { RoundResult, StateResponse, Stats, Yesterday } from '../../shared/api';
 import { addDays, dayNumber, isValidDay, msUntilNextDay, today } from '../../shared/day';
-import { formatValue, promptForDayNumber } from '../../shared/prompts';
-import {
-  MAX_VALUE,
-  emptyCounts,
-  isBullseye,
-  median,
-  percentileBeaten,
-  score,
-  toBins,
-  total,
-} from '../../shared/score';
+import { ROUNDS, promptsForDayNumber } from '../../shared/prompts';
+import { MAX_VALUE, emptyCounts, isBullseye, median, score, toBins, total } from '../../shared/score';
 
 // Redis layout
-//   d:{day}:counts   hash  bucket(0..100) -> number of guesses
-//   d:{day}:guesses  hash  userId -> guess (one per user, enforced with hSetNX)
-//   d:{day}:post     str   postId of that day's post
-//   post:{postId}    str   day a post belongs to (fallback when postData is missing)
-//   u:{userId}       hash  played, streak, best, last, settled, total, scored, bull
+//   d:{day}:r{round}:counts   hash  bucket(0..100) -> number of guesses
+//   d:{day}:r{round}:guesses  hash  userId -> guess (one per user per round, via hSetNX)
+//   d:{day}:post              str   postId of that day's post
+//   post:{postId}             str   day a post belongs to (fallback when postData is missing)
+//   u:{userId}                hash  played, streak, best, last, settled, total, scored, bull
 const keys = {
-  counts: (day: string) => `d:${day}:counts`,
-  guesses: (day: string) => `d:${day}:guesses`,
+  counts: (day: string, round: number) => `d:${day}:r${round}:counts`,
+  guesses: (day: string, round: number) => `d:${day}:r${round}:guesses`,
   dayPost: (day: string) => `d:${day}:post`,
   postDay: (postId: string) => `post:${postId}`,
   user: (userId: string) => `u:${userId}`,
 };
+
+const ROUND_INDEXES = Array.from({ length: ROUNDS }, (_, i) => i);
+const LAST_ROUND = ROUNDS - 1;
 
 export class GameError extends Error {}
 
@@ -34,8 +28,8 @@ const int = (s: string | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const readCounts = async (day: string): Promise<number[]> => {
-  const raw = await redis.hGetAll(keys.counts(day));
+const readCounts = async (day: string, round: number): Promise<number[]> => {
+  const raw = await redis.hGetAll(keys.counts(day, round));
   const counts = emptyCounts();
   for (const [bucket, count] of Object.entries(raw)) {
     const v = int(bucket);
@@ -44,9 +38,31 @@ const readCounts = async (day: string): Promise<number[]> => {
   return counts;
 };
 
-const readGuess = async (day: string, userId: string): Promise<number | null> => {
-  const g = await redis.hGet(keys.guesses(day), userId);
-  return g === undefined || g === null ? null : int(g);
+const readAllCounts = (day: string): Promise<number[][]> =>
+  Promise.all(ROUND_INDEXES.map((r) => readCounts(day, r)));
+
+const readGuesses = (day: string, userId: string): Promise<(number | null)[]> =>
+  Promise.all(
+    ROUND_INDEXES.map(async (r) => {
+      const g = await redis.hGet(keys.guesses(day, r), userId);
+      return g === undefined || g === null ? null : int(g);
+    })
+  );
+
+const isComplete = (guesses: (number | null)[]): guesses is number[] =>
+  guesses.every((g) => g !== null);
+
+/** Total score and bullseye count for a finished day. */
+const tally = (guesses: number[], counts: number[][]) => {
+  let sum = 0;
+  let bullseyes = 0;
+  guesses.forEach((g, r) => {
+    const med = median(counts[r] ?? []);
+    if (med === null) return;
+    sum += score(g, med);
+    if (isBullseye(g, med)) bullseyes++;
+  });
+  return { sum, bullseyes };
 };
 
 export const postUrl = (postId: string): string =>
@@ -70,25 +86,24 @@ export const postIdForDay = async (day: string): Promise<string | null> =>
   (await redis.get(keys.dayPost(day))) ?? null;
 
 /**
- * Folds the user's last finished day into their totals (score, bullseyes).
+ * Folds the user's last finished day into their totals.
  * Runs lazily on their next visit, so there's no nightly batch job over every player.
  */
 const settle = async (userId: string, now: string): Promise<void> => {
-  const u = await redis.hGetAll(keys.user(userId));
+  const userKey = keys.user(userId);
+  const u = await redis.hGetAll(userKey);
   const last = u.last;
   if (!last || last >= now || u.settled === last) return;
-  const [guess, counts] = await Promise.all([readGuess(last, userId), readCounts(last)]);
-  const med = median(counts);
-  if (guess !== null && med !== null) {
+  const [guesses, counts] = await Promise.all([readGuesses(last, userId), readAllCounts(last)]);
+  if (isComplete(guesses)) {
+    const { sum, bullseyes } = tally(guesses, counts);
     await Promise.all([
-      redis.hIncrBy(keys.user(userId), 'total', score(guess, med)),
-      redis.hIncrBy(keys.user(userId), 'scored', 1),
-      isBullseye(guess, med)
-        ? redis.hIncrBy(keys.user(userId), 'bull', 1)
-        : Promise.resolve(0),
+      redis.hIncrBy(userKey, 'total', sum),
+      redis.hIncrBy(userKey, 'scored', 1),
+      redis.hIncrBy(userKey, 'bull', bullseyes),
     ]);
   }
-  await redis.hSet(keys.user(userId), { settled: last });
+  await redis.hSet(userKey, { settled: last });
 };
 
 const readStats = async (userId: string | undefined, now: string): Promise<Stats> => {
@@ -105,7 +120,7 @@ const readStats = async (userId: string | undefined, now: string): Promise<Stats
   };
 };
 
-const buildResults = (counts: number[], guess: number | null): Results => {
+const buildRound = (counts: number[], guess: number | null): RoundResult => {
   const med = median(counts);
   const mine = guess !== null && med !== null;
   return {
@@ -113,29 +128,16 @@ const buildResults = (counts: number[], guess: number | null): Results => {
     median: med,
     bins: toBins(counts),
     score: mine ? score(guess, med) : null,
-    percentile: mine ? percentileBeaten(counts, guess, med) : null,
     bullseye: mine ? isBullseye(guess, med) : false,
   };
 };
 
 const readYesterday = async (userId: string, now: string): Promise<Yesterday | null> => {
   const day = addDays(now, -1);
-  const guess = await readGuess(day, userId);
-  if (guess === null) return null;
-  const counts = await readCounts(day);
-  const med = median(counts);
-  if (med === null) return null;
-  const n = dayNumber(day);
-  const prompt = promptForDayNumber(n);
-  return {
-    number: n,
-    text: prompt.text,
-    median: med,
-    guessLabel: formatValue(prompt, guess),
-    medianLabel: formatValue(prompt, med),
-    score: score(guess, med),
-    count: total(counts),
-  };
+  const guesses = await readGuesses(day, userId);
+  if (!isComplete(guesses)) return null;
+  const { sum, bullseyes } = tally(guesses, await readAllCounts(day));
+  return { number: dayNumber(day), total: sum, bullseyes };
 };
 
 export const getState = async (postId: string): Promise<StateResponse> => {
@@ -147,34 +149,43 @@ export const getState = async (postId: string): Promise<StateResponse> => {
 
   if (userId) await settle(userId, now);
 
-  const guess = userId ? await readGuess(day, userId) : null;
-  const showResults = guess !== null || !open;
+  const guesses: (number | null)[] = userId
+    ? await readGuesses(day, userId)
+    : ROUND_INDEXES.map(() => null);
+  const complete = isComplete(guesses);
+  const showResults = complete || !open;
+
   const [counts, stats, yesterday, todayPostId, players] = await Promise.all([
-    showResults ? readCounts(day) : Promise.resolve(null),
+    showResults ? readAllCounts(day) : Promise.resolve(null),
     readStats(userId, now),
     userId && open ? readYesterday(userId, now) : Promise.resolve(null),
     open ? Promise.resolve(null) : postIdForDay(now),
-    redis.hLen(keys.guesses(day)),
+    redis.hLen(keys.guesses(day, LAST_ROUND)),
   ]);
 
   return {
     type: 'state',
     day,
     number,
-    prompt: promptForDayNumber(number),
+    prompts: promptsForDayNumber(number),
     open,
     msToReset: msUntilNextDay(),
     loggedIn: Boolean(userId),
     players,
-    guess,
-    results: counts ? buildResults(counts, guess) : null,
+    guesses,
+    results: counts ? counts.map((c, r) => buildRound(c, guesses[r] ?? null)) : null,
+    total: complete && counts ? tally(guesses, counts).sum : null,
     stats,
     yesterday,
     todayUrl: todayPostId ? postUrl(todayPostId) : null,
   };
 };
 
-export const submitGuess = async (postId: string, value: number): Promise<StateResponse> => {
+export const submitGuess = async (
+  postId: string,
+  round: number,
+  value: number
+): Promise<StateResponse> => {
   const userId = context.userId;
   if (!userId) throw new GameError('Log in to play.');
   const now = today();
@@ -183,21 +194,28 @@ export const submitGuess = async (postId: string, value: number): Promise<StateR
 
   await settle(userId, now);
 
-  const fresh = await redis.hSetNX(keys.guesses(day), userId, String(value));
-  if (fresh === 0) throw new GameError('You’ve already locked in today.');
+  const guesses = await readGuesses(day, userId);
+  const next = guesses.findIndex((g) => g === null);
+  if (next === -1) throw new GameError('You’ve already played today.');
+  if (round !== next) throw new GameError('That round is already locked in.');
 
-  const userKey = keys.user(userId);
-  const u = await redis.hGetAll(userKey);
-  const streak = u.last === addDays(now, -1) ? int(u.streak) + 1 : 1;
-  await Promise.all([
-    redis.hIncrBy(keys.counts(day), String(value), 1),
-    redis.hIncrBy(userKey, 'played', 1),
-    redis.hSet(userKey, {
-      last: now,
-      streak: String(streak),
-      best: String(Math.max(streak, int(u.best))),
-    }),
-  ]);
+  const fresh = await redis.hSetNX(keys.guesses(day, round), userId, String(value));
+  if (fresh === 0) throw new GameError('That round is already locked in.');
+  await redis.hIncrBy(keys.counts(day, round), String(value), 1);
+
+  if (round === LAST_ROUND) {
+    const userKey = keys.user(userId);
+    const u = await redis.hGetAll(userKey);
+    const streak = u.last === addDays(now, -1) ? int(u.streak) + 1 : 1;
+    await Promise.all([
+      redis.hIncrBy(userKey, 'played', 1),
+      redis.hSet(userKey, {
+        last: now,
+        streak: String(streak),
+        best: String(Math.max(streak, int(u.best))),
+      }),
+    ]);
+  }
 
   return getState(postId);
 };

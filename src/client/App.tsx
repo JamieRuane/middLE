@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { navigateTo } from '@devvit/web/client';
-import type { ErrorResponse, Results, StateResponse, Stats } from '../shared/api';
-import { formatValue } from '../shared/prompts';
+import type { ErrorResponse, RoundResult, StateResponse, Stats } from '../shared/api';
+import { ROUNDS, formatValue } from '../shared/prompts';
 import type { Prompt } from '../shared/prompts';
 import { BIN_COUNT, MAX_VALUE } from '../shared/score';
+
+const MAX_TOTAL = ROUNDS * 100;
 
 // ---------- data ----------
 
@@ -58,14 +60,14 @@ const useGame = () => {
     void loadState(() => true);
   }, [loadState]);
 
-  const guess = useCallback(async (value: number) => {
+  const guess = useCallback(async (round: number, value: number) => {
     setSubmitting(true);
     setNotice(null);
     try {
       const state = await request('/api/guess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value }),
+        body: JSON.stringify({ round, value }),
       });
       setLoad({ kind: 'ready', state, loadedAt: Date.now() });
     } catch (e) {
@@ -97,8 +99,8 @@ const shortDate = (day: string): string =>
     timeZone: 'UTC',
   });
 
-const plural = (n: number, word: string): string =>
-  `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
+const plural = (n: number, one: string, many = `${one}s`): string =>
+  `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 // ---------- pieces ----------
 
@@ -106,6 +108,37 @@ const Wordmark = () => (
   <span className="wordmark" aria-label="middLE">
     midd<span className="wordmark-le">LE</span>
   </span>
+);
+
+const Header = ({ state }: { state: StateResponse }) => (
+  <header className="top">
+    <Wordmark />
+    <span className="meta-chip">
+      #{state.number} · {shortDate(state.day)}
+    </span>
+    {state.stats.streak > 0 && (
+      <span className="streak" title="Days in a row">
+        {state.stats.streak}-day streak
+      </span>
+    )}
+  </header>
+);
+
+const RoundDots = ({ current, done }: { current: number; done: number }) => (
+  <div className="rounds" aria-label={`Round ${current + 1} of ${ROUNDS}`}>
+    <span className="rounds-label">
+      Round {current + 1}
+      <span className="muted"> / {ROUNDS}</span>
+    </span>
+    <span className="dots" aria-hidden="true">
+      {Array.from({ length: ROUNDS }, (_, i) => (
+        <span
+          key={i}
+          className={`dot${i < done ? ' is-done' : ''}${i === current ? ' is-current' : ''}`}
+        />
+      ))}
+    </span>
+  </div>
 );
 
 type TrackProps = {
@@ -196,7 +229,7 @@ const Track = ({ prompt, value, onChange }: TrackProps) => {
   );
 };
 
-// Before you guess: the crowd is there, but its shape is hidden.
+// Before you finish: the crowd is there, but its shape is hidden.
 const GHOST = [2, 3, 4, 6, 9, 13, 18, 24, 31, 38, 44, 48, 46, 40, 32, 24, 16, 10, 6, 3];
 
 const HiddenCrowd = ({ players }: { players: number }) => (
@@ -206,36 +239,36 @@ const HiddenCrowd = ({ players }: { players: number }) => (
     ))}
     <p className="hidden-note">
       {players === 0
-        ? 'Nobody’s in yet. Be the first pin.'
-        : `${plural(players, 'pin')} hidden until you lock in`}
+        ? 'Nobody’s finished yet. Be the first.'
+        : `${plural(players, 'player')} in · revealed after round ${ROUNDS}`}
     </p>
   </div>
 );
 
 const Histogram = ({
-  results,
+  result,
   guess,
   prompt,
 }: {
-  results: Results;
+  result: RoundResult;
   guess: number | null;
   prompt: Prompt;
 }) => {
-  const max = Math.max(1, ...results.bins);
+  const max = Math.max(1, ...result.bins);
   const width = MAX_VALUE / BIN_COUNT;
   const mineBin = guess === null ? -1 : Math.min(BIN_COUNT - 1, Math.floor(guess / width));
   return (
     <div className="hist" aria-hidden="true">
-      {results.bins.map((count, i) => (
+      {result.bins.map((count, i) => (
         <div
           key={i}
           className={`hist-bar${i === mineBin ? ' is-mine' : ''}`}
           style={{ height: `${count === 0 ? 3 : Math.max(8, (count / max) * 100)}%` }}
         />
       ))}
-      {results.median !== null && (
-        <div className="median-line" style={{ left: `${results.median}%` }}>
-          <span>median {formatValue(prompt, results.median)}</span>
+      {result.median !== null && (
+        <div className="median-line" style={{ left: `${result.median}%` }}>
+          <span>median {formatValue(prompt, result.median)}</span>
         </div>
       )}
     </div>
@@ -263,116 +296,57 @@ const StatsRow = ({ stats }: { stats: Stats }) => (
   </dl>
 );
 
-const ResultCard = ({
-  state,
-  countdown,
-}: {
-  state: StateResponse;
-  countdown: string;
-}) => {
-  const { results, prompt, guess, open } = state;
-  if (!results) return null;
-  const { median, count, score, percentile, bullseye } = results;
-  const settling = open && count < 5;
-
-  return (
-    <section className="result" aria-live="polite">
-      {score !== null ? (
-        <div className="score">
-          <span className="score-num">{score}</span>
-          <span className="score-unit">{open ? 'pts so far' : 'pts'}</span>
-          {bullseye && <span className="badge">Bullseye</span>}
-        </div>
-      ) : (
-        <div className="score">
-          <span className="score-unit">{open ? 'Not played yet' : 'You sat this one out'}</span>
-        </div>
-      )}
-      <div className="result-lines">
-        {median !== null && (
-          <p>
-            <span className="label">{open ? 'Live median' : 'Final median'}</span>{' '}
-            <strong>{formatValue(prompt, median)}</strong>
-          </p>
-        )}
-        {guess !== null && (
-          <p>
-            <span className="label">You said</span> <strong>{formatValue(prompt, guess)}</strong>
-            {percentile !== null && count > 1 && <> · closer than {percentile}%</>}
-          </p>
-        )}
-        <p className="muted">
-          {settling
-            ? `Only ${plural(count, 'guess')} so far. The median will move.`
-            : plural(count, 'player')}
-          {open ? ` · final in ${countdown}` : ''}
-        </p>
-      </div>
-    </section>
-  );
-};
-
 // ---------- screens ----------
 
-const Game = ({
-  state,
-  loadedAt,
-  submitting,
-  notice,
-  onGuess,
-}: {
+type GameProps = {
   state: StateResponse;
   loadedAt: number;
   submitting: boolean;
   notice: string | null;
-  onGuess: (v: number) => void;
-}) => {
+  onGuess: (round: number, value: number) => void;
+};
+
+const RoundScreen = ({ state, submitting, notice, onGuess }: GameProps) => {
+  const done = state.guesses.filter((g) => g !== null).length;
+  const round = Math.min(done, ROUNDS - 1);
+  const prompt = state.prompts[round];
   const [draft, setDraft] = useState<number | null>(null);
-  const countdown = useCountdown(state.msToReset, loadedAt);
-  const canPlay = state.open && state.loggedIn && state.guess === null;
-  const firstTime = state.stats.played === 0;
-  const shown = state.guess ?? draft;
+  const canPlay = state.open && state.loggedIn;
+  if (!prompt) return null;
+  const last = round === ROUNDS - 1;
 
   return (
     <main className="app">
-      <header className="top">
-        <Wordmark />
-        <span className="meta-chip">
-          #{state.number} · {shortDate(state.day)}
-        </span>
-        {state.stats.streak > 0 && (
-          <span className="streak" title="Days in a row">
-            {state.stats.streak}-day streak
-          </span>
-        )}
-      </header>
+      <Header state={state} />
 
-      {canPlay && state.yesterday && (
+      {round === 0 && canPlay && state.yesterday && (
         <p className="yesterday">
-          Yesterday: median {state.yesterday.medianLabel}, you said {state.yesterday.guessLabel} ·{' '}
-          <strong>{state.yesterday.score} pts</strong>
+          Yesterday you scored <strong>{state.yesterday.total}</strong> / {MAX_TOTAL}
+          {state.yesterday.bullseyes > 0 && ` with ${plural(state.yesterday.bullseyes, 'bullseye')}`}
+          .
         </p>
       )}
 
-      <h1 className="prompt">{state.prompt.text}</h1>
+      <RoundDots current={round} done={done} />
 
-      {canPlay && (
+      <h1 className="prompt" key={round}>
+        {prompt.text}
+      </h1>
+
+      {canPlay && round === 0 && (
         <p className="hint">
-          {firstTime
-            ? 'Don’t give your answer. Pin where you think most people will land.'
+          {state.stats.played === 0
+            ? `Don’t give your answer. Pin where you think most people will land. ${ROUNDS} rounds, then the reveal.`
             : 'Guess the crowd, not the answer.'}
         </p>
       )}
 
       <div className="field">
-        {state.results ? (
-          <Histogram results={state.results} guess={state.guess} prompt={state.prompt} />
-        ) : (
-          state.open && <HiddenCrowd players={state.players} />
-        )}
+        <HiddenCrowd players={state.players} />
         <Track
-          prompt={state.prompt}
-          value={shown}
+          key={round}
+          prompt={prompt}
+          value={draft}
           onChange={canPlay && !submitting ? setDraft : null}
         />
       </div>
@@ -383,34 +357,160 @@ const Game = ({
             type="button"
             className="lock"
             disabled={draft === null || submitting}
-            onClick={() => draft !== null && onGuess(draft)}
+            onClick={() => {
+              if (draft === null) return;
+              onGuess(round, draft);
+              setDraft(null);
+            }}
           >
             {submitting
               ? 'Locking in…'
               : draft === null
                 ? 'Tap the line to place your pin'
-                : `Lock in ${formatValue(state.prompt, draft)}`}
+                : last
+                  ? `Lock in ${formatValue(prompt, draft)} & reveal`
+                  : `Lock in ${formatValue(prompt, draft)}`}
           </button>
           {notice && <p className="notice">{notice}</p>}
         </div>
       ) : (
-        <>
-          <ResultCard state={state} countdown={countdown} />
-          {!state.loggedIn && state.open && (
-            <p className="notice">Log in to Reddit to play today’s middLE.</p>
-          )}
-          <footer className="after">
-            <StatsRow stats={state.stats} />
-            {state.todayUrl ? (
-              <button type="button" className="next" onClick={() => navigateTo(state.todayUrl ?? '')}>
-                Play today’s middLE →
-              </button>
-            ) : (
-              <p className="discuss">Think the crowd got it wrong? Say so in the comments.</p>
-            )}
-          </footer>
-        </>
+        <p className="notice">Log in to Reddit to play today’s middLE.</p>
       )}
+    </main>
+  );
+};
+
+const RoundDetail = ({
+  state,
+  round,
+  onBack,
+}: {
+  state: StateResponse;
+  round: number;
+  onBack: () => void;
+}) => {
+  const prompt = state.prompts[round];
+  const result = state.results?.[round];
+  const guess = state.guesses[round] ?? null;
+  if (!prompt || !result) return null;
+  return (
+    <main className="app">
+      <header className="top">
+        <button type="button" className="back" onClick={onBack}>
+          ← All rounds
+        </button>
+        <span className="meta-chip">
+          Round {round + 1} / {ROUNDS}
+        </span>
+      </header>
+      <h1 className="prompt">{prompt.text}</h1>
+      <div className="field">
+        <Histogram result={result} guess={guess} prompt={prompt} />
+        <Track prompt={prompt} value={guess} onChange={null} />
+      </div>
+      <p className="detail-line">
+        {result.median !== null && (
+          <>
+            <span className="label">Median</span> <strong>{formatValue(prompt, result.median)}</strong>
+          </>
+        )}
+        {guess !== null && (
+          <>
+            {' · '}
+            <span className="label">You</span> <strong>{formatValue(prompt, guess)}</strong>
+          </>
+        )}
+        {result.score !== null && (
+          <>
+            {' · '}
+            <strong>{result.score} pts</strong>
+            {result.bullseye && <span className="badge inline">Bullseye</span>}
+          </>
+        )}
+      </p>
+      <p className="muted small">{plural(result.count, 'guess', 'guesses')}</p>
+    </main>
+  );
+};
+
+const Summary = ({ state, loadedAt }: GameProps) => {
+  const [selected, setSelected] = useState<number | null>(null);
+  const countdown = useCountdown(state.msToReset, loadedAt);
+
+  if (selected !== null) {
+    return <RoundDetail state={state} round={selected} onBack={() => setSelected(null)} />;
+  }
+
+  const results = state.results ?? [];
+  const bullseyes = results.filter((r) => r.bullseye).length;
+  const few = state.open && state.players < 5;
+
+  return (
+    <main className="app">
+      <Header state={state} />
+
+      <section className="total" aria-live="polite">
+        {state.total !== null ? (
+          <>
+            <div className="total-score">
+              <span className="score-num">{state.total}</span>
+              <span className="score-of">/ {MAX_TOTAL}</span>
+            </div>
+            <div className="total-meta">
+              <span className="score-unit">{state.open ? 'Score so far' : 'Final score'}</span>
+              {bullseyes > 0 && <span className="badge">{plural(bullseyes, 'bullseye')}</span>}
+              <span className="muted small">
+                {few
+                  ? `Only ${plural(state.players, 'player')} so far. Medians will move.`
+                  : plural(state.players, 'player')}
+                {state.open ? ` · final in ${countdown}` : ''}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="total-meta">
+            <span className="score-unit">
+              {state.open ? 'Log in to play' : 'You sat this one out'}
+            </span>
+            <span className="muted small">{plural(state.players, 'player')} · final results</span>
+          </div>
+        )}
+      </section>
+
+      <ol className="round-list">
+        {state.prompts.map((prompt, i) => {
+          const r = results[i];
+          const g = state.guesses[i] ?? null;
+          return (
+            <li key={i}>
+              <button type="button" className="round-row" onClick={() => setSelected(i)}>
+                <span className="round-num">{i + 1}</span>
+                <span className="round-body">
+                  <span className="round-text">{prompt.text}</span>
+                  <span className="round-sub">
+                    {g !== null && <>you {formatValue(prompt, g)} · </>}
+                    {r?.median != null ? <>median {formatValue(prompt, r.median)}</> : 'no guesses'}
+                  </span>
+                </span>
+                <span className={`round-score${r?.bullseye ? ' is-bull' : ''}`}>
+                  {r?.score ?? '–'}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      <footer className="after">
+        <StatsRow stats={state.stats} />
+        {state.todayUrl ? (
+          <button type="button" className="next" onClick={() => navigateTo(state.todayUrl ?? '')}>
+            Play today’s middLE →
+          </button>
+        ) : (
+          <p className="discuss">Tap a round to see the crowd. Disagree? Say so in the comments.</p>
+        )}
+      </footer>
     </main>
   );
 };
@@ -437,14 +537,20 @@ export const App = () => {
       </main>
     );
   }
-  return (
-    <Game
-      key={`${load.state.day}-${load.state.guess ?? 'none'}`}
-      state={load.state}
-      loadedAt={load.loadedAt}
-      submitting={submitting}
-      notice={notice}
-      onGuess={(v) => void guess(v)}
-    />
+
+  const { state, loadedAt } = load;
+  const props: GameProps = {
+    state,
+    loadedAt,
+    submitting,
+    notice,
+    onGuess: (round, value) => void guess(round, value),
+  };
+  const playing = state.open && state.total === null && state.loggedIn;
+  const loggedOutToday = state.open && !state.loggedIn;
+  return playing || loggedOutToday ? (
+    <RoundScreen key={`${state.day}-play`} {...props} />
+  ) : (
+    <Summary key={`${state.day}-summary`} {...props} />
   );
 };

@@ -10,7 +10,7 @@ import {
   clampGuess,
 } from '../src/shared/score.ts';
 import { addDays, dayNumber, msUntilNextDay, today } from '../src/shared/day.ts';
-import { PROMPTS, formatValue, promptForDayNumber } from '../src/shared/prompts.ts';
+import { PROMPTS, ROUNDS, formatValue, promptsForDayNumber } from '../src/shared/prompts.ts';
 
 const countsOf = (...guesses: number[]) => {
   const c = emptyCounts();
@@ -73,9 +73,25 @@ test('every prompt formats both ends and cycles', () => {
     assert.ok(formatValue(p, 0).length > 0);
     assert.ok(formatValue(p, 100).length > 0);
   }
-  assert.equal(promptForDayNumber(1), PROMPTS[0]);
-  assert.equal(promptForDayNumber(PROMPTS.length + 1), PROMPTS[0]);
-  assert.equal(promptForDayNumber(0), PROMPTS[PROMPTS.length - 1]);
+});
+
+test('each day gets ROUNDS prompts, no repeats within a cycle, same for everyone', () => {
+  const perCycle = Math.floor(PROMPTS.length / ROUNDS);
+  assert.ok(perCycle >= 10, `only ${perCycle} days before prompts repeat`);
+  for (const start of [1, 1 + perCycle, 1 + 5 * perCycle]) {
+    const seen = new Set();
+    for (let n = start; n < start + perCycle; n++) {
+      const day = promptsForDayNumber(n);
+      assert.equal(day.length, ROUNDS);
+      for (const p of day) {
+        assert.ok(!seen.has(p), `repeat on day ${n}: ${p.text}`);
+        seen.add(p);
+      }
+    }
+  }
+  assert.deepEqual(promptsForDayNumber(7), promptsForDayNumber(7));
+  assert.notDeepEqual(promptsForDayNumber(1), promptsForDayNumber(1 + perCycle));
+  assert.equal(promptsForDayNumber(0).length, ROUNDS);
 });
 
 test('value formatting', () => {

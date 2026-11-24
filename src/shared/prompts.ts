@@ -275,12 +275,103 @@ export const PROMPTS: readonly Prompt[] = [
     unit: '%',
     gradient: ['#f5a3c0', '#d11a2a'],
   },
+  ...[
+    p('How many close friends is "a lot"?', '1', '30', 1, 30, 'plain'),
+    p('How many hours of screen time a day is too much?', '0h', '16h', 0, 16, 'h', { step: 0.5 }),
+    p('Where does yellow become orange?', 'yellow', 'orange', 0, 100, '%', {
+      gradient: ['#f7e03c', '#f5961b'],
+    }),
+    p('How hot should a bath be?', '30°C', '45°C', 30, 45, '°C', {
+      step: 0.5,
+      gradient: ['#8fc1e8', '#f2e6d0', '#e0582b'],
+    }),
+    p('How many coffees a day is too many?', '0', '10', 0, 10, 'plain', { step: 0.5 }),
+    p('How long should a good film be?', '1 hour', '4 hours', 60, 240, 'min', { step: 5 }),
+    p('What time is "late" for dinner?', '5pm', '11pm', 17 * 60, 23 * 60, 'time', { step: 5 }),
+    p('How long is a reasonable shower?', '0', '30 min', 0, 30, 'min'),
+    p('At what age are you a proper grown-up?', '12', '40', 12, 40, 'yrs'),
+    p('Where does navy become black?', 'navy', 'black', 0, 100, '%', {
+      gradient: ['#1f3577', '#050505'],
+    }),
+    p('How crowded is too crowded for a beach?', 'empty', 'packed', 0, 100, '%'),
+    p('How many unread emails is chaos?', '0', '1,000', 0, 1000, 'plain', { step: 10 }),
+    p('How bright is your phone screen right now?', 'dim', 'max', 0, 100, '%'),
+    p('How many days can you skip washing your hair?', '0', '2 weeks', 0, 14, 'days', {
+      step: 0.5,
+    }),
+    p('When does "night" start?', '6pm', 'midnight', 18 * 60, 24 * 60, 'time', { step: 5 }),
+    p('How long would you wait for a table?', '0', '90 min', 0, 90, 'min'),
+    p('How many people make it a party?', '2', '50', 2, 50, 'plain'),
+    p('How warm is jumper weather?', '0°C', '25°C', 0, 25, '°C', {
+      gradient: ['#3b7dd8', '#e9e4d8', '#f1a54a'],
+    }),
+    p('Where does brown become orange?', 'brown', 'orange', 0, 100, '%', {
+      gradient: ['#5e3519', '#e8791c'],
+    }),
+    p('How long could you last without your phone?', '0h', '2 days', 0, 48, 'h'),
+    p('How many slices of pizza is a fair share?', '1', '8', 1, 8, 'plain', { step: 0.5 }),
+    p('How old should you be to get a phone?', '5', '18', 5, 18, 'yrs'),
+    p('How much of a plate should be vegetables?', 'none', 'all', 0, 100, '%'),
+    p('How long is too long for a voice note?', '0', '5 min', 0, 5, 'min', { step: 0.25 }),
+    p('How many alarms does it take to get up?', '1', '10', 1, 10, 'plain'),
+    p('Where does lavender stop being blue?', 'blue', 'pink', 0, 100, '%', {
+      gradient: ['#8fa6e8', '#b48be0', '#d98bcd'],
+    }),
+    p('How many years is a "long" relationship?', '0', '20', 0, 20, 'yrs', { step: 0.5 }),
+    p('What’s a good tip?', '0%', '40%', 0, 40, '%'),
+    p('How much of a book can you skim and still say you read it?', 'none', 'all', 0, 100, '%'),
+    p('How full is "full" for a phone’s storage?', 'empty', '100%', 0, 100, '%'),
+  ],
 ];
 
-export const promptForDayNumber = (n: number): Prompt => {
-  const i = (((n - 1) % PROMPTS.length) + PROMPTS.length) % PROMPTS.length;
-  // PROMPTS is non-empty, so the index is always in range.
-  return PROMPTS[i] ?? PROMPTS[0]!;
+function p(
+  text: string,
+  left: string,
+  right: string,
+  min: number,
+  max: number,
+  unit: Unit,
+  extra: Pick<Prompt, 'step' | 'gradient'> = {}
+): Prompt {
+  return { text, left, right, min, max, unit, ...extra };
+}
+
+/** Rounds played each day. */
+export const ROUNDS = 5;
+
+/** Deterministic PRNG so every player (and the server) gets the same daily set. */
+const mulberry32 = (seed: number) => () => {
+  let t = (seed += 0x6d2b79f5);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+const shuffled = (seed: number): number[] => {
+  const order = PROMPTS.map((_, i) => i);
+  const rand = mulberry32(seed);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const a = order[i] ?? 0;
+    order[i] = order[j] ?? 0;
+    order[j] = a;
+  }
+  return order;
+};
+
+/**
+ * The ROUNDS prompts for a day. The pool is reshuffled every cycle, and no prompt repeats
+ * within a cycle (floor(PROMPTS.length / ROUNDS) days).
+ */
+export const promptsForDayNumber = (n: number): Prompt[] => {
+  const perCycle = Math.floor(PROMPTS.length / ROUNDS);
+  const index = n - 1;
+  const cycle = Math.floor(index / perCycle);
+  const slot = index - cycle * perCycle;
+  return shuffled(cycle + 1)
+    .slice(slot * ROUNDS, slot * ROUNDS + ROUNDS)
+    .map((i) => PROMPTS[i])
+    .filter((x): x is Prompt => x !== undefined);
 };
 
 const roundTo = (x: number, step: number): number =>
